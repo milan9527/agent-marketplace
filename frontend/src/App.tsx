@@ -2429,6 +2429,14 @@ export default function App() {
                   </div>
                 </dl>
                 <p className="small-note">
+                  {user?.wallet_shared && (
+                    <>
+                      Shared test wallet. Your account has a total allowance of{" "}
+                      {cash(user.payment_limit || "0")} USDC, with{" "}
+                      {cash(user.remaining)} USDC remaining. The wallet balance is
+                      shared; your tasks and payment records belong to your account.{" "}
+                    </>
+                  )}
                   Task payments use this wallet through AgentCore Payments.
                   Privy signing permissions are checked when you authorize a
                   payment.

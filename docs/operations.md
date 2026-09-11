@@ -94,6 +94,7 @@ CDK synth、容器运行、本地 EVM 和 SDK schema 校验均不替代 AWS 实�
 - 专用演示账户 `demo@agentmarketplace.example` 使用独立 Cognito subject，通过 `ShowcaseUserSub` 和明确的任务／Agent ID 列表读取现有测试数据。该演示邮箱使用保留的 `.example` 域，不接收邮件；需要变更密码时由管理员处理。不要把展示账户绑定到原付款钱包，也不要复制已结算支付来填充展示数据。
 - Cognito 的 `AdminCreateUserConfig.AllowAdminCreateUserOnly` 必须为 `true`，CDK 中的 `selfSignUpEnabled` 必须为 `false`。`SignUp is not permitted for this user pool` 是预期的自助注册拒绝结果，不应再启用该功能。`scripts/verify_deployment.py` 会检查注册关闭，以及邮箱验证和密码登录配置。
 - `PaymentOwnerSub` 与 Cognito `/api/me` 的 `id` 对应，原有 `PaymentUserId` 与 AgentCore 钱包对应，两者不能互换。
+- `PaymentDelegateSub` 可为另一个明确的 Cognito 账户授予同一测试钱包的付款权限；`PaymentDelegateLimitMicros` 是管理员设置的累计付款加预留上限（默认 1 测试 USDC），账户自己的预算不能突破它。两个配置同时部署到 API 和编排 Runtime。清空 delegate 参数可撤销权限；仅设置只读 showcase 不会开放支付。账本按登录账户分别归属，钱包实际资金共用。
 - 支付资源配置以 CloudFormation 参数为准，账户钱包映射保存在 RDS。参数部署完成后，可运行 `scripts/bind_aws_wallet.py --region us-east-1` 为指定且已登录过的账户绑定现有钱包；同一绑定可重复验证，不替换其他钱包，也不调用付款接口。当前绑定结果见 `artifacts/aws-wallet-binding.json`。
 - AWS 通过 `scripts/seed_aws.py` 初始化 8 个共享演示 profile，新用户登录即可使用。演示记录使用 `demo-` ID 和独立系统 owner，收款字段为非钱包的内部标识，API 返回 `wallet: null`、`is_demo: true`、`bookable: true`。演示任务选标后进入 `demo_ready`，可直接调用交付接口；付款接口始终拒绝演示任务。演示身份由服务端数据判断，客户端不能为付费任务指定免费模式。交付和反馈保存在个人任务中，不改变消费额度、支付记录或公开信誉。脚本重复执行不会改写已有用户或交易。
 - 上线验证产生的临时账户、任务与 profile 应在测试后清除，共享演示目录应保留。

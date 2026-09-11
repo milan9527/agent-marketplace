@@ -48,7 +48,7 @@ try {
       fullPage: true,
     });
     await page.goto(site + "/#tasks");
-    await expect(page.locator(".task-row")).toHaveCount(5);
+    await expect(page.locator(".task-row")).toHaveCount(verification.visible_task_count);
     await page.screenshot({
       path: path.join(root, `artifacts/aws-demo-account-tasks-${name}.png`),
       fullPage: true,
@@ -66,9 +66,24 @@ try {
     await download.saveAs(destination);
     const digest = createHash("sha256").update(await readFile(destination)).digest("hex");
     expect(digest).toBe(selected.delivery_sha256);
+    await dialog.getByRole("button", { name: "Close dialog" }).click();
     await page.goto(site + "/#payments");
-    await expect(page.locator("tbody tr")).toHaveCount(3);
-    await expect(page.getByText("0 successful transactions")).toBeVisible();
+    await expect(page.locator("tbody tr")).toHaveCount(verification.visible_payment_count);
+    await expect(page.getByText(
+      `${verification.own_settled_payment_count} successful transactions`,
+    )).toBeVisible();
+    if (verification.payment_delegate) {
+      await page.getByRole("button", { name: "Stripe / Privy wallet" }).click();
+      await expect(page.getByRole("dialog").getByText(/Shared test wallet/)).toBeVisible({
+        timeout: 45000,
+      });
+      await expect(page.getByRole("dialog").getByText(/1\.00 USDC/)).toBeVisible();
+      await page.screenshot({
+        path: path.join(root, `artifacts/aws-demo-wallet-${name}.png`),
+        fullPage: true,
+      });
+      await page.keyboard.press("Escape");
+    }
     await page.screenshot({
       path: path.join(root, `artifacts/aws-demo-account-payments-${name}.png`),
       fullPage: true,
@@ -77,7 +92,7 @@ try {
     await expect(page.locator(".agent-card")).toHaveCount(3);
     await page.goto(site + "/#tasks");
     await page.reload();
-    await expect(page.locator(".task-row")).toHaveCount(5);
+    await expect(page.locator(".task-row")).toHaveCount(verification.visible_task_count);
     expect(writes).toEqual([]);
     report.push({
       viewport: name,
@@ -86,6 +101,7 @@ try {
       shared_business_agents: 3,
       shared_tasks: 5,
       shared_payments: 3,
+      shared_wallet_verified: verification.payment_delegate,
       downloaded_document_matches: true,
       reload_preserves_access: true,
       marketplace_write_requests: writes,

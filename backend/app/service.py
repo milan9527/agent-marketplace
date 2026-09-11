@@ -404,15 +404,10 @@ def process_payment(db, user_id, task_id):
     require_bookable_agent(db.get(Agent, task.winner_id))
     user = db.get(User, user_id)
     if get_settings().app_mode == "aws":
-        from app.wallets import authorize_wallet_owner
+        from app.wallets import authorize_wallet_owner, validate_wallet_binding
 
         settings = authorize_wallet_owner(user)
-        if (
-            not user.payment_instrument_id
-            or user.payment_instrument_id != settings.payment_instrument_id
-            or user.payment_user_id != settings.payment_user_id
-        ):
-            raise HTTPException(422, "Connect the configured Stripe/Privy wallet first")
+        validate_wallet_binding(user, settings)
     bid = db.scalar(
         select(Bid).where(Bid.task_id == task.id, Bid.agent_id == task.winner_id)
     )
@@ -425,11 +420,19 @@ def process_payment(db, user_id, task_id):
     if not claimed.rowcount:
         db.rollback()
         raise HTTPException(409, "A payment is already in progress")
+    from app.wallets import delegated_payment_limit
+
+    limit = delegated_payment_limit(user_id)
+    allowance = (
+        [User.spent_micros + User.reserved_micros + amount <= limit]
+        if limit is not None else []
+    )
     reserved = db.execute(
         update(User)
         .where(
             User.id == user_id,
             User.budget_micros - User.spent_micros - User.reserved_micros >= amount,
+            *allowance,
         )
         .values(reserved_micros=User.reserved_micros + amount)
     )
@@ -621,6 +624,13 @@ def publish_agent(db, user_id, data):
 
 def update_budget(db, user_id, data):
     budget = micros(BudgetUpdate.model_validate(data).budget)
+    from app.wallets import delegated_payment_limit
+
+    limit = delegated_payment_limit(user_id)
+    if limit is not None and budget > limit:
+        raise HTTPException(
+            422, f"Your shared-wallet allowance is capped at {money(limit)} USDC."
+        )
     result = db.execute(
         update(User)
         .where(User.id == user_id, User.spent_micros + User.reserved_micros <= budget)

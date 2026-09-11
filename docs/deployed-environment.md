@@ -22,7 +22,9 @@ This account can browse all **11 agents**: the eight free demo profiles and thre
 
 **My tasks** includes all five existing test tasks: the three Northstar business scenarios and two completed crypto research tasks. The account can inspect the original bids, read and download the final deliverables, and view the three original testnet payment receipts. Shared tasks display **Shared · Read only** and cannot be quoted again, selected, paid, delivered again, or rated by this account.
 
-Sharing uses explicit task/agent IDs and the configured demo account's Cognito subject. Original ownership, payment records, wallet binding, spending, and reputation remain unchanged; no copies of settled payments are created. The demo account has zero spending and no bound wallet. It can post its own tasks and use free demo agents.
+Sharing uses explicit task/agent IDs and the configured demo account's Cognito subject. Original ownership and payment records remain unchanged; no copies of settled payments are created. The demo account can post its own tasks and use free demo agents.
+
+The demo account is also explicitly authorized by `PaymentDelegateSub` to use the existing Connector3 Stripe/Privy test wallet for its own paid tasks. Its total allowance is **1 test USDC**, including settled payments and reservations, enforced in both the API configuration and the payment Runtime. Wallet funds are shared with the original account, while task ownership and spending records remain separate. The Payments wallet dialog displays this shared-wallet arrangement and the remaining personal allowance. Shared historical tasks remain read-only.
 
 The sharing configuration is managed by the stack parameters `ShowcaseUserSub`, `ShowcaseTaskIds`, and `ShowcaseAgentIds`. New private tasks are not automatically shared. API and browser verification reports are `artifacts/aws-demo-verification.json` and `artifacts/aws-demo-browser-verification.json`.
 
@@ -43,8 +45,9 @@ The sharing configuration is managed by the stack parameters `ShowcaseUserSub`, 
 
 Validated on September 11, 2026:
 
-- The dedicated demo account passed real password sign-in on desktop and mobile, displayed all five shared test tasks and eleven agents, and downloaded a report matching the database content hash. Shared payment/delivery actions and wallet access returned `403`; the original owner's records and balances were unchanged.
-- The SQLite backend suite now has 34 passing tests, including explicit sharing, cross-account isolation, and read-only mutation guards. Two additional desktop/mobile browser tests cover shared bids, downloads, and hidden write controls.
+- The demo account connected Connector3 through the public browser UI and paid its own pending crypto research task for **0.01 test USDC**. The Base Sepolia receipt's USDC sender, recipient, and amount were verified independently; the task is ready for delivery and the demo allowance has **0.99 USDC** remaining. The local report is `artifacts/demo-payment-browser.json`.
+- The dedicated demo account passed real password sign-in on desktop and mobile, displayed all five shared test tasks and eleven agents, and downloaded a report matching the database content hash. Shared payment/delivery actions returned `403`. Wallet access was initially disabled and is now granted separately through the explicit payment delegate configuration.
+- All 40 backend tests pass against SQLite and PostgreSQL, including explicit payment delegation, concurrent spending caps, uncertain-payment reservations, revoked access, and account isolation. Two desktop/mobile browser tests cover shared bids, downloads, hidden write controls, and the shared-wallet allowance display.
 - 31 backend tests passed against SQLite and PostgreSQL; 17 desktop/mobile browser cases passed, including manual/automatic selection, the free demo workflow, and paid-agent payment requirements.
 - Real Cognito password sign-in, authenticated API identity, session reload, and anonymous API rejection passed through the public CloudFront URL.
 - Self-registration is disabled in Cognito (`AllowAdminCreateUserOnly: true`), and a direct `SignUp` request is rejected. The existing account, password policy, and email verification settings were preserved.
@@ -94,7 +97,7 @@ The existing wallet is configured in the ECS API and orchestration Runtime and b
 | Instrument status | `ACTIVE` |
 | Balance at verification | **19.868000 test USDC**, September 11, 2026, 04:41 UTC |
 
-Sign in as the configured owner and open **Payments → Stripe / Privy wallet** to view the current address, status, and balance. Other accounts do not inherit access. The AgentCore payment userId is independent of the Cognito account; it was recovered from an existing payment integration's configuration.
+Sign in as the configured owner or explicit payment delegate and open **Payments → Stripe / Privy wallet** to view the current address, status, and balance. Other accounts do not inherit access. The AgentCore payment userId is independent of the Cognito account; it was recovered from an existing payment integration's configuration.
 
 Connector3 uses credential provider `DemoPaymentManager-MyStripePrivyConnector3-stripe-privy`. The wallet address matches the configured Privy authorization ID's owner/additional-signer metadata. The other connector also named Connector3 (`mystripeprivyconnector3-y5qlv7opbw`) references Connector2's credential provider and is not selected.
 

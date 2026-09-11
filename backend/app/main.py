@@ -27,7 +27,9 @@ from app.showcase import readable_task, shared_ids, task_visibility, visible_tas
 from app.wallets import (
     authorize_wallet_owner,
     bind_existing_wallet,
+    delegated_payment_limit,
     inspect_existing_wallet,
+    validate_wallet_binding,
 )
 
 logger = logging.getLogger("marketplace")
@@ -100,19 +102,23 @@ def config():
 
 @app.get("/api/me")
 def me(user: User = Depends(current_user)):
+    limit = delegated_payment_limit(user.id)
+    budget = min(user.budget_micros, limit) if limit is not None else user.budget_micros
     return {
         "id": user.id,
         "name": user.name,
-        "budget": money(user.budget_micros),
+        "budget": money(budget),
         "spent": money(user.spent_micros),
         "reserved": money(user.reserved_micros),
         "remaining": money(
-            user.budget_micros - user.spent_micros - user.reserved_micros
+            budget - user.spent_micros - user.reserved_micros
         ),
         "wallet_connected": bool(user.payment_instrument_id),
         "wallet_url": user.wallet_url,
         "wallet_address": user.wallet_address,
         "wallet_provider": "Stripe / Privy",
+        "wallet_shared": limit is not None,
+        "payment_limit": money(limit) if limit is not None else None,
     }
 
 
@@ -335,4 +341,5 @@ def wallet_status(user: User = Depends(current_user)):
     settings = authorize_wallet_owner(user)
     if not user.payment_instrument_id:
         raise HTTPException(409, "Connect your existing Stripe/Privy wallet first")
+    validate_wallet_binding(user, settings)
     return inspect_existing_wallet(settings)

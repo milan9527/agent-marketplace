@@ -98,24 +98,60 @@ def inspect_existing_wallet(settings=None, client=None, control=None) -> dict:
     }
 
 
+def delegated_payment_limit(user_id: str) -> int | None:
+    """A separate, operator-controlled allowance; showcase access grants none."""
+    settings = get_settings()
+    if (
+        settings.app_mode == "aws"
+        and settings.payment_owner_sub
+        and user_id != settings.payment_owner_sub
+        and user_id == settings.payment_delegate_sub
+    ):
+        return settings.payment_delegate_limit_micros
+    return None
+
+
 def authorize_wallet_owner(user):
     settings = get_settings()
     if not settings.payment_owner_sub:
         raise HTTPException(
             503, "Assign this wallet to your account before connecting it."
         )
-    if user.id != settings.payment_owner_sub:
+    if (
+        user.id != settings.payment_owner_sub
+        and delegated_payment_limit(user.id) is None
+    ):
         raise HTTPException(
             403, "This payment wallet is assigned to another workspace account."
         )
     return settings
 
 
+def validate_wallet_binding(user, settings):
+    if (
+        not user.payment_instrument_id
+        or user.payment_instrument_id != settings.payment_instrument_id
+        or user.payment_user_id != settings.payment_user_id
+        or (
+            settings.payment_connector_id
+            and user.payment_connector_id != settings.payment_connector_id
+        )
+    ):
+        raise HTTPException(422, "Connect the configured Stripe/Privy wallet first")
+
+
 def bind_existing_wallet(db, user):
     settings = authorize_wallet_owner(user)
     if (
         user.payment_instrument_id
-        and user.payment_instrument_id != settings.payment_instrument_id
+        and (
+            user.payment_instrument_id != settings.payment_instrument_id
+            or user.payment_user_id != settings.payment_user_id
+            or (
+                settings.payment_connector_id
+                and user.payment_connector_id != settings.payment_connector_id
+            )
+        )
     ):
         raise HTTPException(
             409, "A different wallet is already bound. Contact your workspace operator."

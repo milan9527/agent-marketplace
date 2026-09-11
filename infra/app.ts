@@ -30,6 +30,13 @@ const paymentUser = new CfnParameter(stack, 'PaymentUserId', {
 const paymentOwner = new CfnParameter(stack, 'PaymentOwnerSub', {
   type: 'String', default: '', description: 'Cognito subject allowed to use the existing wallet; empty disables binding',
 })
+const paymentDelegate = new CfnParameter(stack, 'PaymentDelegateSub', {
+  type: 'String', default: '', description: 'Optional Cognito subject explicitly allowed to pay from the shared test wallet',
+})
+const paymentDelegateLimit = new CfnParameter(stack, 'PaymentDelegateLimitMicros', {
+  type: 'Number', default: 1000000, minValue: 0,
+  description: 'Total delegated spending cap in USDC micro-units (1000000 = 1 test USDC), including reservations',
+})
 const showcaseUser = new CfnParameter(stack, 'ShowcaseUserSub', {
   type: 'String', default: '', description: 'Cognito subject allowed to read the selected shared test records',
 })
@@ -140,9 +147,12 @@ const orchestrator = new agentcore.CfnRuntime(stack, 'OrchestratorRuntime', {
     DATABASE_SECRET_ARN: database.secret!.secretArn,
     BIDDER_RUNTIME_ARN: bidders.attrAgentRuntimeArn,
     PAYMENT_MANAGER_ARN: paymentManager.valueAsString,
+    PAYMENT_CONNECTOR_ID: paymentConnector.valueAsString,
     PAYMENT_INSTRUMENT_ID: paymentInstrument.valueAsString,
     PAYMENT_USER_ID: paymentUser.valueAsString,
     PAYMENT_OWNER_SUB: paymentOwner.valueAsString,
+    PAYMENT_DELEGATE_SUB: paymentDelegate.valueAsString,
+    PAYMENT_DELEGATE_LIMIT_MICROS: paymentDelegateLimit.valueAsString,
     FACILITATOR_URL: facilitator.valueAsString,
   },
 })
@@ -249,6 +259,8 @@ const container = task.addContainer('api', {
     PAYMENT_INSTRUMENT_ID: paymentInstrument.valueAsString,
     PAYMENT_USER_ID: paymentUser.valueAsString,
     PAYMENT_OWNER_SUB: paymentOwner.valueAsString,
+    PAYMENT_DELEGATE_SUB: paymentDelegate.valueAsString,
+    PAYMENT_DELEGATE_LIMIT_MICROS: paymentDelegateLimit.valueAsString,
     PRIVY_WALLET_URL: privyWalletUrl.valueAsString,
     SHOWCASE_USER_SUB: showcaseUser.valueAsString,
     SHOWCASE_TASK_IDS: showcaseTasks.valueAsString,

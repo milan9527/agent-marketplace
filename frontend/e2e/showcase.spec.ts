@@ -88,14 +88,24 @@ test("shared test tasks expose bids and downloads without write controls", async
       "/api/me": {
         id: "showcase-user",
         name: "Marketplace Demo",
-        budget: "10",
+        budget: "1",
         spent: "0",
         reserved: "0",
-        remaining: "10",
-        wallet_connected: false,
+        remaining: "1",
+        wallet_connected: true,
+        wallet_shared: true,
+        payment_limit: "1",
         wallet_url: null,
         wallet_address: null,
         wallet_provider: "Stripe / Privy",
+      },
+      "/api/me/wallet": {
+        provider: "Stripe / Privy",
+        status: "ACTIVE",
+        balance: "19.838",
+        address: `0x${"2".repeat(40)}`,
+        network: "Base Sepolia",
+        wallet_url: null,
       },
       "/api/agents": [agent],
       "/api/tasks": [task],
@@ -138,9 +148,15 @@ test("shared test tasks expose bids and downloads without write controls", async
     fullPage: true,
   });
   expect(writes).toEqual([]);
+  await dialog.getByRole("button", { name: "Close dialog" }).click();
   await page.goto("/#payments");
   await expect(
     page.getByText("Shared test transaction", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("0 successful transactions")).toBeVisible();
+  await page.getByRole("button", { name: "Stripe / Privy wallet" }).click();
+  await expect(page.getByRole("dialog").getByText(/Shared test wallet/)).toContainText(
+    "Your account has a total allowance of 1.00 USDC",
+  );
+  expect(writes).toEqual([]);
 });

@@ -75,6 +75,8 @@ export type User = {
   wallet_url: string | null;
   wallet_address: string | null;
   wallet_provider: string;
+  wallet_shared?: boolean;
+  payment_limit?: string | null;
 };
 export type WalletInfo = {
   provider: string;

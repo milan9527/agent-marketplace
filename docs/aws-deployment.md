@@ -90,6 +90,8 @@ CDK 设置 `selfSignUpEnabled: false`，对应 Cognito `AllowAdminCreateUserOnly
 
 为独立演示账户开放已有测试数据时，设置 `ShowcaseUserSub` 为其 Cognito subject，`ShowcaseTaskIds`、`ShowcaseAgentIds` 为逗号分隔的明确资源 ID。只读授权在后端按已验证的登录身份判断；共享任务的所有修改接口返回 `403`，其他账户仍受原有隔离规则约束。该配置不迁移记录，也不会赋予 `PaymentOwnerSub` 的钱包权限。
 
+如需让独立演示账户使用同一个现有测试钱包付款，另行设置 `PaymentDelegateSub` 为其 Cognito subject，`PaymentDelegateLimitMicros=1000000` 将累计付款及待确认预留资金限制在 1 测试 USDC。两个参数同时注入 ECS API 和编排 Runtime；仅共享测试数据不会获得付款权限。该账户登录后可以 **Connect existing wallet**，为自己创建的任务付款。原账户钱包绑定及账本不变，钱包资金由两个获授权账户共用。后端在原子预算预留时检查上限，网页无法调高管理员上限；清空 `PaymentDelegateSub` 即撤销权限，即使数据库仍保留绑定也无法再次付款。
+
 通过 `scripts/verify_demo_user.py --credentials-file <私有凭据文件>` 和 `node scripts/verify_demo_browser.mjs <私有凭据文件>` 可验证实际登录、共享范围、只读限制、桌面／手机展示和下载。凭据文件包含 `email`、`password`、`sub`，应限制本机读取权限，不能提交到仓库；验证报告不包含密码或令牌。
 
 部署完成后执行只读检查（不创建账户、不发送邮件、不付款）：

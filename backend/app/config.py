@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +22,8 @@ class Settings(BaseSettings):
     payment_instrument_id: str = ""
     payment_user_id: str = ""
     payment_owner_sub: str = ""
+    payment_delegate_sub: str = ""
+    payment_delegate_limit_micros: int = Field(default=1_000_000, ge=0)
     showcase_user_sub: str = ""
     showcase_task_ids: str = ""
     showcase_agent_ids: str = ""

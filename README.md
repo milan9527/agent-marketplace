@@ -109,6 +109,6 @@ npm test
 
 AWS 使用私有 S3 + CloudFront OAC 托管前端，ECS Fargate 托管 API，RDS PostgreSQL 保存数据，AgentCore Runtime 执行业务编排和竞价／交付。`/login` 提供全英文邮箱登录、已有账户邮箱验证和密码重置，不提供自助注册。部署输出包含 `WebsiteUrl` 和 `LoginUrl`。
 
-支付使用现有 PaymentManager `demopaymentmanager-zy4lsroxj3` 和 Connector3。**AWS 已为 `milan9527@hotmail.com` 绑定 ACTIVE 的现有 Stripe/Privy 钱包，网络为 Base Sepolia 测试网**；登录后进入 **Payments → Stripe / Privy wallet** 查看地址和余额。绑定已写入 RDS，未发起付款。`PAYMENT_OWNER_SUB` 将现有付款身份限定给该 Cognito 登录账户，其他账户不会共享钱包权限。资源标识和验证记录见 [已部署环境](docs/deployed-environment.md)。
+支付使用现有 PaymentManager `demopaymentmanager-zy4lsroxj3` 和 Connector3。**AWS 已为 `milan9527@hotmail.com` 绑定 ACTIVE 的现有 Stripe/Privy 钱包，网络为 Base Sepolia 测试网**；登录后进入 **Payments → Stripe / Privy wallet** 查看地址和余额。`PAYMENT_OWNER_SUB` 指定原付款账户；独立 demo 登录账户通过 `PAYMENT_DELEGATE_SUB` 获得同一测试钱包的明确授权，累计付款与预留资金上限为 **1 测试 USDC**。钱包资金共用，任务和付款账本按登录账户分别保存；共享历史测试任务仍为只读，其他账户不会自动获得钱包权限。资源标识和验证记录见 [已部署环境](docs/deployed-environment.md)。
 
 三份合约提供源码、编译、部署脚本及本地 EVM 测试。**当前网页的注册、任务与信誉以数据库为准，尚未连接链上事件同步**。云端 USDC 支付结算与这三份目录合约独立，因此不依赖目录合约部署。该边界也显示在英文 Settings 页面中。

@@ -7,13 +7,15 @@ from fastapi import HTTPException
 import pytest
 
 from app import wallets
+from app.config import Settings
 from app.db import session_factory
 from app.models import User
 
 
 @pytest.fixture
 def existing_wallet(monkeypatch):
-    settings = SimpleNamespace(
+    settings = Settings(
+        app_mode="aws",
         payment_manager_arn="arn:aws:bedrock-agentcore:us-west-2:123456789012:payment-manager/existing-0123456789",
         payment_instrument_id="payment-instrument-123456789012345",
         payment_user_id="privy-existing-user",
@@ -117,3 +119,43 @@ def test_inactive_wallet_is_rejected(existing_wallet):
     dp.get_payment_instrument.return_value["paymentInstrument"]["status"] = "BLOCKED"
     with pytest.raises(HTTPException, match="blocked"):
         wallets.inspect_existing_wallet(settings)
+
+
+def test_explicit_delegate_can_bind_without_changing_owner(client, existing_wallet):
+    settings, dp, _ = existing_wallet
+    settings.payment_delegate_sub = "showcase-user"
+    with session_factory()() as db:
+        owner = db.get(User, "demo-user")
+        wallets.bind_existing_wallet(db, owner)
+        original = (owner.payment_instrument_id, owner.spent_micros, owner.budget_micros)
+        delegate = User(id="showcase-user", name="Marketplace Demo")
+        db.add(delegate)
+        db.commit()
+        wallets.bind_existing_wallet(db, delegate)
+        assert delegate.payment_instrument_id == owner.payment_instrument_id
+        assert delegate.payment_user_id == owner.payment_user_id
+        assert wallets.delegated_payment_limit(delegate.id) == 1_000_000
+        assert wallets.delegated_payment_limit(owner.id) is None
+        assert (owner.payment_instrument_id, owner.spent_micros, owner.budget_micros) == original
+        settings.payment_delegate_sub = ""
+        with pytest.raises(HTTPException) as exc:
+            wallets.authorize_wallet_owner(delegate)
+        assert exc.value.status_code == 403
+    dp.process_payment.assert_not_called()
+
+
+def test_delegate_cannot_replace_payment_identity(client, existing_wallet):
+    settings, dp, _ = existing_wallet
+    settings.payment_delegate_sub = "delegate"
+    with session_factory()() as db:
+        user = User(
+            id="delegate", name="Delegate",
+            payment_instrument_id=settings.payment_instrument_id,
+            payment_user_id="different-payment-user",
+        )
+        db.add(user)
+        db.commit()
+        with pytest.raises(HTTPException) as exc:
+            wallets.bind_existing_wallet(db, user)
+        assert exc.value.status_code == 409
+    dp.get_payment_instrument.assert_not_called()
