@@ -1,0 +1,66 @@
+{
+  "name": "Northstar Commerce | September operations simulation",
+  "description": "Synthetic business inputs, real Bedrock generation, and actual Base Sepolia test-USDC settlement. No external business systems are accessed.",
+  "max_total_payment": "0.030000",
+  "agents": [
+    {
+      "key": "finance",
+      "recipient_instrument_id": "payment-instrument-cmEPKDYMTg073FK",
+      "profile": {
+        "name": "Northstar Revenue Analyst",
+        "tagline": "Turn commerce and acquisition data into clear profitability decisions.",
+        "description": "A business-scenario specialist for revenue analysis, channel profitability, unit economics, marketing allocation, and inventory working capital. Analyzes supplied datasets and writes decision-ready reports with calculations and assumptions. Uses Bedrock; no live data access. This profile participates in paid Base Sepolia testnet simulations using an existing workspace-owned receiving wallet.",
+        "category": "Finance",
+        "skills": ["Revenue analysis", "Unit economics", "Channel profitability", "Budget allocation", "Inventory finance"],
+        "price": "0.010000"
+      }
+    },
+    {
+      "key": "operations",
+      "recipient_instrument_id": "payment-instrument-bBbBzwyJdcGt3Z7",
+      "profile": {
+        "name": "Northstar Operations Planner",
+        "tagline": "Translate demand, stock, and service data into practical operating plans.",
+        "description": "A business-scenario specialist for inventory planning, reorder calculations, demand coverage, operational KPIs, support queue capacity, and prioritized execution plans. Works from supplied inputs and states assumptions. Uses Bedrock; does not place orders or modify external systems. Paid simulations settle test USDC on Base Sepolia to an existing workspace-owned receiving wallet.",
+        "category": "Data",
+        "skills": ["Inventory planning", "Reorder analysis", "Demand coverage", "Operational analytics", "Support operations"],
+        "price": "0.010000"
+      }
+    },
+    {
+      "key": "automation",
+      "recipient_instrument_id": "payment-instrument-8OzweHHAvVpjpgH",
+      "profile": {
+        "name": "Northstar Service Workflow Designer",
+        "tagline": "Design reliable support routing and exception-handling workflows.",
+        "description": "A business-scenario specialist for customer support triage, intent classification, queue routing, SLA rules, workflow pseudocode, acceptance cases, and inventory exception alerts. Produces implementation-ready designs from supplied data. Uses Bedrock; does not execute automations or contact customers. Paid simulations use an existing workspace-owned wallet for Base Sepolia test-USDC receipts.",
+        "category": "Automation",
+        "skills": ["Support triage", "Workflow design", "SLA routing", "Acceptance cases", "Exception handling"],
+        "price": "0.010000"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "key": "weekly-performance",
+      "title": "Northstar | Weekly commerce performance review",
+      "category": "Finance",
+      "budget": "0.010000",
+      "spec": "BUSINESS SIMULATION: All figures below are synthetic. Currency is USD. Analyze one week of Northstar Commerce acquisition data. Paid Search: ad spend 2400, orders 160, revenue 12800, COGS 7040. Paid Social: spend 1800, orders 90, revenue 6750, COGS 3712.50. Email: spend 300, orders 120, revenue 9600, COGS 5280. Calculate per-channel and total revenue, orders, spend, COGS, average order value, revenue/ad-spend ROAS, spend/order acquisition cost, and contribution after COGS and ad spend. Show formulas and a Markdown table. Recommend a next-week allocation of the same 4500 marketing budget, explaining channel saturation and attribution limitations instead of assuming linear returns. Return an executive conclusion, the calculation table, three prioritized actions, and assumptions. Use supplied inputs only."
+    },
+    {
+      "key": "inventory-plan",
+      "title": "Northstar | 30-day inventory replenishment plan",
+      "category": "Data",
+      "budget": "0.010000",
+      "spec": "BUSINESS SIMULATION: Synthetic inventory data for a 30-day planning horizon. SKU TRAIL-MUG: on-hand 180 units, confirmed inbound 60, daily demand 20, supplier lead time 10 days, safety coverage 4 days, unit cost USD 12. SKU COMMUTE-BAG: on-hand 80, inbound 0, daily demand 8, lead time 14 days, safety coverage 5 days, cost USD 25. SKU DESK-STAND: on-hand 400, inbound 100, daily demand 10, lead time 7 days, safety coverage 3 days, cost USD 8. Define inventory position as on-hand plus inbound. Reorder point = daily demand * (lead time + safety days). Target inventory = daily demand * (30 + safety days). Suggested replenishment = max(0, target inventory - inventory position). Calculate position, on-hand days of cover, reorder point, target stock, replenishment quantity, and purchase cost for every SKU. State whether each SKU is below its reorder point and prioritize urgent action. Inbound timing is unknown: flag its impact and avoid assuming it arrives before a stockout. Return a Markdown decision table, total procurement amount, and a concise action plan. Do not place orders."
+    },
+    {
+      "key": "support-routing",
+      "title": "Northstar | Customer support routing and SLA design",
+      "category": "Automation",
+      "budget": "0.010000",
+      "spec": "BUSINESS SIMULATION: Design an implementable support triage workflow using only these synthetic requirements. Business hours: Monday-Friday 09:00-17:00 UTC. Security or suspected fraud: P0, Security queue, acknowledge within 15 elapsed minutes, on-call escalation outside business hours. Delivered-but-missing shipment or a duplicate charge: P1, Logistics or Billing respectively, acknowledge within 2 business hours. Return/exchange requests: P2, Returns queue, acknowledge within 8 business hours. Product questions: P3, General queue, acknowledge within 16 business hours. Unknown or conflicting intents: Human Review queue, preserve highest plausible priority. Never refund, change an order, disclose personal information, or close a fraud report automatically. Classify these tickets: T1 'I see two charges for order NS-1042'; T2 'Tracking says delivered but nothing arrived'; T3 'Can I exchange a blue mug for green?'; T4 'Someone accessed my account and changed my address'; T5 'Does the stand fit a 15-inch laptop?'; T6 'I was charged twice and think my account was hacked'. Return an English Markdown routing table, priority precedence, business-hour deadline algorithm with examples for a Friday 16:30 UTC arrival, workflow pseudocode, retry/idempotency rules, and at least six acceptance cases. Label the output as a design, not a deployed integration."
+    }
+  ]
+}

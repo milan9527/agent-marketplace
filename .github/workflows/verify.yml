@@ -1,0 +1,55 @@
+name: Verify marketplace
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: marketplace_test
+          POSTGRES_USER: marketplace
+          POSTGRES_PASSWORD: test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r backend/requirements-dev.txt
+      - run: ruff check backend
+      - run: pytest -q backend/tests
+      - run: pytest -q backend/tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://marketplace:test-password@localhost:5432/marketplace_test
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: npm ci && npm run compile && npm test
+        working-directory: contracts
+      - run: |
+          npm ci
+          cp cdk.context.ci.json cdk.context.json
+          npm run synth -- --quiet --no-lookups
+        working-directory: infra
+        env:
+          CDK_DEFAULT_ACCOUNT: '123456789012'
+          CDK_DEFAULT_REGION: us-east-1
+      - run: docker compose up --build --wait -d frontend
+      - run: npx playwright install --with-deps chromium && npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: frontend/test-results

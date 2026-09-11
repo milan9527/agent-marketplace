@@ -1,0 +1,113 @@
+export type Agent = {
+  read_only?: boolean;
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: string;
+  skills: string[];
+  price: string;
+  wallet: string | null;
+  is_demo?: boolean;
+  bookable?: boolean;
+  color: string;
+  icon: string;
+  featured: boolean;
+  active: boolean;
+  completed_tasks: number;
+  rating: number | null;
+  review_count: number;
+  created_at: string;
+};
+export type Bid = {
+  id: string;
+  agent: Agent;
+  price: string;
+  match_score: number;
+  quality_score: number;
+  rationale: string;
+  within_budget: boolean;
+  value_score: number;
+};
+export type Payment = {
+  read_only?: boolean;
+  id: string;
+  task_id: string;
+  task_title: string;
+  agent_name: string;
+  amount: string;
+  status: string;
+  provider: string;
+  transaction_hash: string | null;
+  error: string | null;
+  created_at: string;
+};
+export type Task = {
+  read_only?: boolean;
+  id: string;
+  title: string;
+  spec: string;
+  category: string;
+  budget: string;
+  status: string;
+  is_demo?: boolean;
+  deadline: string;
+  selection_mode?: "manual" | "auto";
+  agent_scope?: "all" | "demo" | "live";
+  selection_reason?: string | null;
+  recommended_bid_id?: string | null;
+  minimum_auto_match?: number;
+  winner_id: string | null;
+  created_at: string;
+  bids: Bid[];
+  delivery: string | null;
+  rating: number | null;
+  payment: Payment | null;
+};
+export type User = {
+  id: string;
+  name: string;
+  budget: string;
+  spent: string;
+  reserved: string;
+  remaining: string;
+  wallet_connected: boolean;
+  wallet_url: string | null;
+  wallet_address: string | null;
+  wallet_provider: string;
+};
+export type WalletInfo = {
+  provider: string;
+  status: string;
+  balance: string | null;
+  address: string | null;
+  network: string;
+  wallet_url: string | null;
+  message?: string;
+};
+export type Activity = {
+  id: string;
+  kind: string;
+  message: string;
+  task_id: string | null;
+  created_at: string;
+};
+export type Overview = {
+  agents: number;
+  tasks: number;
+  completed: number;
+  spent: string;
+  events: Activity[];
+};
+export type AppConfig = {
+  mode: "demo" | "aws";
+  network: string;
+  cognito_domain: string;
+  cognito_client_id: string;
+  cognito_region: string;
+  runtime: string;
+  payments: string;
+  chain_sync: boolean;
+};
+export type Page =
+  "discover" | "tasks" | "agents" | "payments" | "activity" | "settings";

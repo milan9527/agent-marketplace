@@ -1,0 +1,21 @@
+{
+  "name": "agent-marketplace-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "node compile.mjs",
+    "test": "node --test contracts.test.mjs",
+    "deploy:sepolia": "node deploy.mjs"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "hardhat": "3.16.0",
+    "solc": "0.8.37"
+  }
+}

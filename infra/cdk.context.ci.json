@@ -1,0 +1,12 @@
+{
+  "availability-zones:account=123456789012:region=us-east-1": [
+    "us-east-1a",
+    "us-east-1b"
+  ],
+  "cc-api-provider:account=123456789012:expectedMatchCount=exactly-one:propertiesToReturn.0=PrefixListId:propertyMatch.PrefixListName=com.amazonaws.global.cloudfront.origin-facing:region=us-east-1:typeName=AWS$:$:EC2$:$:PrefixList": [
+    {
+      "PrefixListId": "pl-00000000000000000",
+      "Identifier": "pl-00000000000000000"
+    }
+  ]
+}

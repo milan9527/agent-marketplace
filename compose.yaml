@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketplace-local-only}
+    volumes:
+      - marketplace_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://marketplace:${POSTGRES_PASSWORD:-marketplace-local-only}@db:5432/marketplace
+    depends_on:
+      db:
+        condition: service_healthy
+  backend:
+    build: ./backend
+    environment:
+      APP_MODE: demo
+      DATABASE_URL: postgresql+psycopg://marketplace:${POSTGRES_PASSWORD:-marketplace-local-only}@db:5432/marketplace
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5174
+    ports:
+      - "${API_PORT:-8001}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  frontend:
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  marketplace_data:
