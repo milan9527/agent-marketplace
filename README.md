@@ -12,6 +12,8 @@ AWS 用户登录后可直接使用本地默认的 **8 个演示 Agent**，支持
 
 任务支持 **I'll choose an agent / Automatic: bid, pay & run** 两种模式，也可筛选免费演示或付费 Agent。自动模式在发布时授权任务预算内的支付，后台完成竞价、选标、AgentCore Payments 支付和交付，关闭网页后继续执行。选标要求至少 70% 匹配、报价在预算内，再按 `quality × match / price` 排序。手动模式仍需逐步确认；旧任务可点击 **Run automatically** 授权剩余步骤。详见 [自动竞价与选标](docs/bidding-and-selection.md)。
 
+AWS Agent 通过 **AgentCore Web Search** 实际搜索、读取网页，通过 **AgentCore Code Interpreter** 执行计算、数据处理、代码测试和流程规则，并保存可下载文件。任务详情展示 **Execution evidence**、来源时间、工具输入输出和验收检查；仅生成文本不能完成任务。缺少必要输入或外部系统连接时明确阻止执行。历史结果会标注缺少工具证据，可点击 **Run with real tools** 重新执行，复用已结算付款，不再次扣款。详见 [真实工具执行](docs/real-execution.md)。
+
 提供 [Northstar 业务场景自动执行脚本](docs/business-scenarios.md)：发布 3 个业务 Agent 和经营分析、库存补货、客服分流任务，自动竞价和选标，执行总计不超过 **0.03 Base Sepolia 测试 USDC** 的支付，核对链上转账，再生成并保存交付物。
 
 ## 本地运行

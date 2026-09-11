@@ -1,5 +1,39 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap");
 
+.execution-panel {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid #dde3d8;
+  border-radius: 12px;
+  background: #fafbf8;
+  overflow-wrap: anywhere;
+}
+.execution-panel h3, .execution-timeline summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.execution-panel small { color: #71806b; }
+.execution-timeline { list-style: none; padding: 0; margin: 16px 0; }
+.execution-timeline li { padding: 10px 0; border-bottom: 1px solid #e4e8df; }
+.execution-timeline summary { flex-wrap: wrap; cursor: pointer; font-size: 13px; }
+.execution-timeline pre {
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: 300px;
+  font-size: 11px;
+  background: #f0f3eb;
+  padding: 12px;
+  border-radius: 8px;
+}
+.execution-sources > div { margin: 12px 0; font-size: 13px; }
+.execution-sources small { display: block; margin-top: 4px; }
+.execution-artifacts { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.execution-artifacts h4 { flex-basis: 100%; margin: 0; }
+.execution-artifacts button { max-width: 100%; overflow-wrap: anywhere; }
+.execution-validation { font-size: 13px; margin-top: 16px; }
+.execution-validation summary { cursor: pointer; }
+
 :root {
   font-family:
     "DM Sans",

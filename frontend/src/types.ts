@@ -10,6 +10,8 @@ export type Agent = {
   wallet: string | null;
   is_demo?: boolean;
   bookable?: boolean;
+  tools?: string[];
+  execution_mode?: "tools" | "local_demo";
   color: string;
   icon: string;
   featured: boolean;
@@ -70,6 +72,48 @@ export type Task = {
   delivery: string | null;
   rating: number | null;
   payment: Payment | null;
+  requirements?: {
+    summary: string;
+    web: boolean;
+    code: boolean;
+    external_actions: string[];
+    missing_inputs: string[];
+    acceptance_criteria: string[];
+  } | null;
+  execution?: Execution | null;
+};
+export type Execution = {
+  id: string;
+  status: "running" | "validating" | "blocked" | "completed";
+  started_at: string;
+  updated_at: string;
+  steps: number;
+  error: string | null;
+  has_previous_delivery: boolean;
+  trace: {
+    id: string;
+    tool: string;
+    status: "succeeded" | "failed";
+    started_at: string;
+    finished_at: string;
+    input: Record<string, unknown>;
+    output: Record<string, unknown>;
+  }[];
+  sources: {
+    id: string;
+    title: string;
+    url: string;
+    published_at?: string | null;
+    retrieved_at: string;
+    read: boolean;
+    sha256?: string;
+  }[];
+  artifacts: { name: string; bytes: number; sha256: string }[];
+  validation?: {
+    passed: boolean;
+    reason: string;
+    checks: { requirement: string; passed: boolean; evidence: string }[];
+  } | null;
 };
 export type User = {
   id: string;

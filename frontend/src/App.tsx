@@ -48,6 +48,7 @@ import type { LucideIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { api, completeSignIn, post, signOut } from "./api";
 import LoginPage from "./LoginPage";
+import ExecutionPanel, { toolNames } from "./ExecutionPanel";
 import type {
   Agent,
   AppConfig,
@@ -118,6 +119,8 @@ const statuses: Record<string, string> = {
   paid: "Ready for delivery",
   demo_ready: "Ready to run demo",
   delivering: "Working on it",
+  executing: "Running tools",
+  execution_blocked: "Needs attention",
   completed: "Completed",
   payment_review: "Review required",
   payment_failed: "Payment failed",
@@ -576,10 +579,14 @@ export default function App() {
           action === "pay"
             ? "Payment settled. Your agent is ready to work."
             : action === "deliver"
-              ? "Your deliverable is ready."
-              : action === "rate"
-                ? "Thanks! Your review has been recorded."
-                : "Task updated.",
+              ? updated.status === "completed"
+                ? "Your deliverable is ready."
+                : "Tool execution started. You can follow its progress here."
+              : action === "rerun"
+                ? "A new tool execution has started. No new payment."
+                : action === "rate"
+                  ? "Thanks! Your review has been recorded."
+                  : "Task updated.",
         );
       } catch (e) {
         const updated = await api<Task>(`/tasks/${task.id}`).catch(() => null);
@@ -1940,7 +1947,7 @@ export default function App() {
               <span>
                 {config?.mode === "demo"
                   ? "This profile runs with a simulated specialist in demo mode."
-                  : "Your specialist profile runs in the shared AgentCore bidder runtime using Amazon Bedrock."}{" "}
+                  : "Your category determines available research, code execution, and file tools. Tasks requiring an unconnected external system cannot run."}{" "}
                 Use a wallet you control to receive payments.
               </span>
             </div>
@@ -1977,6 +1984,16 @@ export default function App() {
               <span className="demo-profile-badge">Demo profile</span>
             )}
             <p>{agent.description}</p>
+            {agent.execution_mode === "tools" && (
+              <div className="form-note">
+                <Workflow size={18} />
+                <span>
+                  <strong>Execution capabilities</strong>
+                  <br />
+                  {agent.tools?.map((tool) => toolNames[tool]).join(" · ")}
+                </span>
+              </div>
+            )}
             <div className="tags">
               {agent.skills.map((s) => (
                 <span key={s}>{s}</span>
@@ -2133,6 +2150,78 @@ export default function App() {
                 {new Date(task.deadline).toLocaleString("en-US")}
               </small>
             </div>
+            {task.requirements &&
+              (task.requirements.external_actions.length > 0 ||
+                task.requirements.missing_inputs.length > 0) && (
+                <div className="form-note warning">
+                  <CircleHelp size={18} />
+                  <span>
+                    Required before execution:{" "}
+                    {[
+                      ...task.requirements.external_actions,
+                      ...task.requirements.missing_inputs,
+                    ].join("; ")}
+                  </span>
+                </div>
+              )}
+            {task.execution && (
+              <ExecutionPanel
+                execution={task.execution}
+                download={(name) =>
+                  void run(async () => {
+                    const file = await api<{ name: string; content: string }>(
+                      `/tasks/${task.id}/artifacts/${task.execution!.id}/${encodeURIComponent(name)}`,
+                    );
+                    const url = URL.createObjectURL(
+                      new Blob([file.content], { type: "text/plain" }),
+                    );
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = file.name;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  })
+                }
+              />
+            )}
+            {config?.mode === "aws" && task.delivery && !task.execution && (
+              <div className="form-note warning">
+                <CircleHelp size={18} />
+                <span>
+                  Historical result: no tool execution evidence was recorded.
+                  This document is not proof that live research or code
+                  execution occurred.
+                </span>
+              </div>
+            )}
+            {config?.mode === "aws" &&
+              !task.read_only &&
+              !autoRunning &&
+              ["completed", "execution_blocked"].includes(task.status) && (
+                <div className="checkout-box">
+                  <div>
+                    <Workflow size={20} />
+                    <span>
+                      <strong>Run this task with real tools.</strong>
+                      <small>
+                        Uses the selected agent and the existing payment or free
+                        allocation. No new payment.
+                      </small>
+                    </span>
+                  </div>
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void taskAction(task, "rerun")}
+                  >
+                    {busy
+                      ? formBusy
+                      : task.execution
+                        ? "Run again with tools"
+                        : "Run with real tools"}
+                  </button>
+                </div>
+              )}
             {(task.selection_reason || task.selection_mode === "auto") && (
               <div className="form-note">
                 <Sparkles size={18} />
@@ -2168,6 +2257,7 @@ export default function App() {
                 "awaiting_payment",
                 "paid",
                 "demo_ready",
+                "executing",
               ].includes(task.status) && (
                 <div className="checkout-box">
                   <div>
@@ -2209,7 +2299,9 @@ export default function App() {
                 )}
               </button>
             )}
-            {["quoting", "paying", "delivering"].includes(task.status) && (
+            {["quoting", "paying", "delivering", "executing"].includes(
+              task.status,
+            ) && (
               <div className="processing-note">
                 <LoaderCircle size={20} className="spin" />
                 <p>{statuses[task.status]}… This view updates automatically.</p>

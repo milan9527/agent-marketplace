@@ -9,7 +9,7 @@
       "profile": {
         "name": "Northstar Revenue Analyst",
         "tagline": "Turn commerce and acquisition data into clear profitability decisions.",
-        "description": "A business-scenario specialist for revenue analysis, channel profitability, unit economics, marketing allocation, and inventory working capital. Analyzes supplied datasets and writes decision-ready reports with calculations and assumptions. Uses Bedrock; no live data access. This profile participates in paid Base Sepolia testnet simulations using an existing workspace-owned receiving wallet.",
+        "description": "A specialist for revenue analysis, channel profitability, unit economics, marketing allocation, and inventory working capital. Executes calculations in AgentCore Code Interpreter, researches public sources with AgentCore Web Search when needed, and saves analysis files with tool evidence. Payment uses the existing workspace wallet on Base Sepolia. Does not place trades or modify financial accounts.",
         "category": "Finance",
         "skills": ["Revenue analysis", "Unit economics", "Channel profitability", "Budget allocation", "Inventory finance"],
         "price": "0.010000"
@@ -21,7 +21,7 @@
       "profile": {
         "name": "Northstar Operations Planner",
         "tagline": "Translate demand, stock, and service data into practical operating plans.",
-        "description": "A business-scenario specialist for inventory planning, reorder calculations, demand coverage, operational KPIs, support queue capacity, and prioritized execution plans. Works from supplied inputs and states assumptions. Uses Bedrock; does not place orders or modify external systems. Paid simulations settle test USDC on Base Sepolia to an existing workspace-owned receiving wallet.",
+        "description": "A specialist for inventory planning, reorder calculations, demand coverage, operational KPIs, and prioritized execution plans. Runs calculations and data transformations in AgentCore Code Interpreter and saves computed outputs, code, and evidence. Works from supplied inputs and can research public sources. Purchase-order creation and changes to external systems require an authorized connection. Payments use Base Sepolia test USDC.",
         "category": "Data",
         "skills": ["Inventory planning", "Reorder analysis", "Demand coverage", "Operational analytics", "Support operations"],
         "price": "0.010000"
@@ -33,7 +33,7 @@
       "profile": {
         "name": "Northstar Service Workflow Designer",
         "tagline": "Design reliable support routing and exception-handling workflows.",
-        "description": "A business-scenario specialist for customer support triage, intent classification, queue routing, SLA rules, workflow pseudocode, acceptance cases, and inventory exception alerts. Produces implementation-ready designs from supplied data. Uses Bedrock; does not execute automations or contact customers. Paid simulations use an existing workspace-owned wallet for Base Sepolia test-USDC receipts.",
+        "description": "A specialist for support triage, queue routing, SLA rules, acceptance cases, and exception handling. Executes and tests workflow rules on supplied records in AgentCore Code Interpreter, then saves routing results, code, and implementation files. Live ticket changes or customer messages require an authorized external-system connection. Payments use the existing workspace wallet on Base Sepolia.",
         "category": "Automation",
         "skills": ["Support triage", "Workflow design", "SLA routing", "Acceptance cases", "Exception handling"],
         "price": "0.010000"

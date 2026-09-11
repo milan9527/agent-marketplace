@@ -54,7 +54,16 @@ const facilitator = new CfnParameter(stack, 'FacilitatorUrl', {
   allowedPattern: 'https://.+', description: 'An x402 v2 facilitator supporting Base Sepolia',
 })
 const modelId = new CfnParameter(stack, 'BedrockModelId', {
-  type: 'String', default: 'us.amazon.nova-pro-v1:0',
+  type: 'String', default: 'us.anthropic.claude-sonnet-4-6',
+})
+const webSearchGatewayArn = new CfnParameter(stack, 'WebSearchGatewayArn', {
+  type: 'String',
+  default: 'arn:aws:bedrock-agentcore:us-east-1:632930644527:gateway/websearch-gw-r8drgaliob',
+  description: 'Existing IAM-authenticated AgentCore Gateway with the managed WebSearch connector',
+})
+const webSearchGatewayUrl = new CfnParameter(stack, 'WebSearchGatewayUrl', {
+  type: 'String',
+  default: 'https://websearch-gw-r8drgaliob.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp',
 })
 
 const vpc = new ec2.Vpc(stack, 'Vpc', {
@@ -106,13 +115,30 @@ bidderRole.addToPolicy(new iam.PolicyStatement({
     `arn:${stack.partition}:bedrock:*::foundation-model/*`,
   ],
 }))
+bidderRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['bedrock-agentcore:InvokeGateway'],
+  resources: [webSearchGatewayArn.valueAsString],
+}))
+bidderRole.addToPolicy(new iam.PolicyStatement({
+  actions: [
+    'bedrock-agentcore:StartCodeInterpreterSession',
+    'bedrock-agentcore:InvokeCodeInterpreter',
+    'bedrock-agentcore:StopCodeInterpreterSession',
+  ],
+  resources: [
+    `arn:${stack.partition}:bedrock-agentcore:${stack.region}:aws:code-interpreter/aws.codeinterpreter.v1`,
+    stack.formatArn({ service: 'bedrock-agentcore', resource: 'code-interpreter', resourceName: 'aws.codeinterpreter.v1' }),
+  ],
+}))
 const bidders = new agentcore.CfnRuntime(stack, 'BidderRuntime', {
   agentRuntimeName: 'marketplace_bidders',
-  description: 'Shared specialist profiles: self-evaluation and Bedrock-powered delivery',
+  description: 'Specialists with managed Web Search, public page retrieval, isolated code execution and evidence checks',
   agentRuntimeArtifact: { containerConfiguration: { containerUri: runtimeImage.imageUri } },
   roleArn: bidderRole.roleArn, networkConfiguration: { networkMode: 'PUBLIC' }, protocolConfiguration: 'HTTP',
   environmentVariables: {
     APP_MODE: 'aws', RUNTIME_ROLE: 'bidders', AWS_REGION: stack.region, BEDROCK_MODEL_ID: modelId.valueAsString,
+    WEB_SEARCH_GATEWAY_URL: webSearchGatewayUrl.valueAsString,
+    CODE_INTERPRETER_ID: 'aws.codeinterpreter.v1',
   },
 })
 bidders.node.addDependency(bidderRole)

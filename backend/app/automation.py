@@ -21,7 +21,7 @@ from app.service import (
 
 LEASE_SECONDS = 600
 IN_PROGRESS = {"quoting", "paying", "delivering"}
-SAFE_STATES = {"open", "bidding", "awaiting_payment", "demo_ready", "paid"}
+SAFE_STATES = {"open", "bidding", "awaiting_payment", "demo_ready", "paid", "executing"}
 
 
 def start_automation(db, user_id, task_id):
@@ -43,7 +43,7 @@ def start_automation(db, user_id, task_id):
         raise HTTPException(
             409, "This task cannot start automatically. Check its current status."
         )
-    if task.status not in {"paid", "demo_ready"}:
+    if task.status not in {"paid", "demo_ready", "executing"}:
         check_deadline(task)
     payment = db.scalar(select(Payment).where(Payment.task_id == task.id))
     if payment and payment.status != "settled":
@@ -187,8 +187,8 @@ def advance_automation(db):
             auto_select_bid(db, task.owner_id, task_id)
         elif task.status == "awaiting_payment":
             process_payment(db, task.owner_id, task_id)
-        elif task.status in {"paid", "demo_ready"}:
-            settle_marketplace(db, task.owner_id, task_id)
+        elif task.status in {"paid", "demo_ready", "executing"}:
+            settle_marketplace(db, task.owner_id, task_id, job_lease_token=token)
         else:
             return _finish(
                 db,
@@ -221,7 +221,7 @@ def advance_automation(db):
         if (
             isinstance(exc, HTTPException)
             and exc.status_code >= 500
-            and task.status in {"open", "paid", "demo_ready"}
+            and task.status in {"open", "paid", "demo_ready", "executing"}
             and attempts < 2
         ):
             return _finish(
@@ -238,7 +238,12 @@ def advance_automation(db):
     task = db.get(Task, task_id)
     if task.status == "bidding" and not task.winner_id:
         return _finish(db, task_id, token, "blocked", task.selection_reason)
-    if task.status == initial_stage:
+    if task.status == "execution_blocked":
+        from app.execution_service import latest_run
+
+        run = latest_run(db, task.id)
+        return _finish(db, task_id, token, "blocked", run.state.get("error"))
+    if task.status == initial_stage and task.status != "executing":
         return _finish(
             db,
             task_id,

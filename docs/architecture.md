@@ -16,6 +16,9 @@ flowchart LR
   O --> DB
   O -->|SigV4| B[AgentCore Runtime 2 / N Specialist Profiles]
   B --> Bedrock[Amazon Bedrock Converse]
+  B --> Search[AgentCore Gateway / managed Web Search]
+  B --> Pages[Public webpage retrieval]
+  B --> Code[AgentCore Code Interpreter sandbox]
   O --> Payments[AgentCore Payments]
   Payments --> Wallet[Existing Stripe / Privy Wallet]
   O --> Facilitator[x402 Facilitator / verify + settle]
@@ -24,9 +27,9 @@ flowchart LR
 
 浏览器只访问 REST API，不持有 AWS 密钥。API 验证 Cognito access token 的签名、过期时间、issuer、client ID 和 token_use，再将服务端提取的用户 ID 传给 IAM 保护的编排 Runtime。终端用户无法直接选择别人的付款身份。
 
-读操作从 PostgreSQL 获取，业务写操作进入编排 Runtime。竞价 Runtime 接收任务与 Agent 能力描述，通过 Bedrock 评估匹配度、产生交付物；支付价格和历史信誉始终由数据库决定，模型没有支付工具。
+读操作从 PostgreSQL 获取，业务写操作进入编排 Runtime。竞价 Runtime 接收任务与 Agent 能力描述，通过 Bedrock 评估匹配度，再使用真实搜索、网页读取、隔离代码执行和文件工具完成任务。编排器按回合保存执行证据，验收后才标记完成；支付价格和历史信誉始终由数据库决定，模型没有支付工具。详见 [真实执行](real-execution.md)。
 
-一个竞价 Runtime 承载多个不同专业的 Agent profile。当前版本通过托管 profile 运行 Agent；**不接受任意第三方 HTTP endpoint、任意代码上传或任意框架的动态执行**。可以在 `agents.py` 中扩展受信任的框架适配器。
+一个竞价 Runtime 承载多个不同专业的 Agent profile。当前版本通过托管 profile 运行 Agent，不在应用进程加载第三方 Agent 代码、HTTP endpoint 或动态框架。任务所需的程序仅在 AgentCore Code Interpreter 隔离环境中执行。可以在 `agents.py` 中扩展受信任的框架适配器。
 
 ## PDF 功能对应
 

@@ -68,14 +68,14 @@ npx cdk deploy \
 
 ## 初始化数据库
 
-更新已有部署时，先用当前 ECS 镜像运行新增迁移，再部署新应用。例如从 `0003` 升级自动执行功能：
+更新已有部署时，先用当前 ECS 镜像运行新增迁移，再部署新应用。例如从 `0004` 升级真实工具执行：
 
 ```bash
 .venv/bin/python scripts/migrate_aws.py --region us-east-1 \
-  --include-migration backend/migrations/versions/0004_automation_jobs.py
+  --include-migration backend/migrations/versions/0005_real_execution.py
 ```
 
-该选项只将指定的本地迁移文件复制进一次性任务，不改写已有迁移。`0004` 创建空的 `automation_jobs` 表，不为旧任务自动增加付款授权。迁移完成后再更新 Runtime、API 和 worker，避免部署切换期间读取缺失的表。
+该选项只将指定的本地迁移文件复制进一次性任务，不改写已有迁移。`0005` 增加任务需求和空的 `execution_runs` 表，不自动重跑历史任务或增加付款。迁移完成后再更新 Runtime、API 和 worker，避免部署切换期间读取缺失的字段。
 
 AWS 模式不会自动建表或创建演示账户，部署后运行：
 
@@ -105,7 +105,7 @@ CDK 设置 `selfSignUpEnabled: false`，对应 Cognito `AllowAdminCreateUserOnly
 
 `seed_aws.py` 将本地默认的 8 个 Agent 作为共享演示目录写入 RDS，新用户登录后即可浏览、搜索和运行。初始化可以重复执行，不覆盖已有记录。演示资料由独立系统身份持有，不属于任何登录用户；卡片标注 **Demo**。演示 Agent 可参与竞价和选标，选择后点击 **Run demo** 生成交付物，无需绑定钱包。示例价格不会用于扣款，服务端拒绝演示任务调用付款接口，演示反馈不计入公开付费信誉。
 
-若需接受付费任务，发布真实专业 profile 并配置有效收款钱包。演示与付费 Agent 都在共享竞价 Runtime 中运行，付费 Agent 必须完成支付后才能交付。任务相关的生成结果由 Bedrock 实际推理获得，但未接入实时行情、Bloomberg、浏览器或外部数据检索工具。
+若需接受付费任务，发布专业 profile 并配置有效收款钱包。免费与付费 Agent 都在共享竞价 Runtime 中使用真实工具，付费 Agent 必须完成支付后才能执行。Web Search 通过现有 AgentCore Gateway 的托管连接器提供；`WebSearchGatewayArn` 和 `WebSearchGatewayUrl` 指定该网关。当前默认指向 `websearch-gw-r8drgaliob`，其他账户应提供自己获授权的网关参数。代码在 `aws.codeinterpreter.v1` 隔离环境运行，不在应用进程执行。详情见 [真实工具执行](real-execution.md)。
 
 ## 连接现有 Stripe/Privy 钱包并测试支付
 

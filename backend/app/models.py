@@ -85,6 +85,7 @@ class Task(Base):
     preferred_agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id"))
     winner_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id"))
     delivery: Mapped[str | None] = mapped_column(Text)
+    requirements: Mapped[dict | None] = mapped_column(JSON)
     rating: Mapped[int | None] = mapped_column(Integer)
     deadline: Mapped[str] = mapped_column(String(40))
     created_at: Mapped[str] = mapped_column(String(40), default=now)
@@ -151,3 +152,15 @@ class AutomationJob(Base):
     created_at: Mapped[str] = mapped_column(String(40), default=now)
     updated_at: Mapped[str] = mapped_column(String(40), default=now)
     __table_args__ = (Index("ix_automation_ready", "status", "available_at"),)
+
+
+class ExecutionRun(Base):
+    __tablename__ = "execution_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"))
+    status: Mapped[str] = mapped_column(String(24), default="running")
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+    original_delivery: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(String(40), default=now)
+    updated_at: Mapped[str] = mapped_column(String(40), default=now)
+    __table_args__ = (Index("ix_execution_task_created", "task_id", "created_at"),)

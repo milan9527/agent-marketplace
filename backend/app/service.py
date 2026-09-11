@@ -59,6 +59,8 @@ def record(db, user_id, kind, message, task_id=None):
 
 
 def agent_view(a: Agent) -> dict:
+    from app.tools import capabilities
+
     return {
         "id": a.id,
         "name": a.name,
@@ -70,6 +72,8 @@ def agent_view(a: Agent) -> dict:
         "wallet": None if is_demo_profile(a) else a.wallet,
         "is_demo": is_demo_profile(a),
         "bookable": a.active,
+        "tools": capabilities(a.category),
+        "execution_mode": "tools" if get_settings().app_mode == "aws" else "local_demo",
         "color": a.color,
         "icon": a.icon,
         "featured": a.featured,
@@ -100,6 +104,8 @@ def payment_view(p: Payment, db) -> dict:
 
 
 def task_view(task: Task, db: Session) -> dict:
+    from app.execution_service import execution_view, latest_run
+
     bids = ranked_bids(task, db)
     bid_views = []
     for bid in bids:
@@ -153,6 +159,8 @@ def task_view(task: Task, db: Session) -> dict:
         "created_at": task.created_at,
         "bids": bid_views,
         "delivery": task.delivery,
+        "requirements": task.requirements,
+        "execution": execution_view(latest_run(db, task.id)),
         "rating": task.rating,
         "payment": payment_view(payment, db) if payment else None,
     }
@@ -284,6 +292,7 @@ def quote_marketplace(db, user_id, task_id):
             }
         )
         evaluations = {e["agent_id"]: e for e in result["bids"]}
+        task.requirements = result.get("requirements")
         count = 0
         for agent in agents:
             evaluation = evaluations.get(agent.id)
@@ -338,6 +347,11 @@ def select_bid(db, user_id, task_id, data, *, automatic=False):
         raise HTTPException(404, "Bid not found")
     agent = db.get(Agent, bid.agent_id)
     require_bookable_agent(agent)
+    from app.execution import capability_error
+
+    unavailable = capability_error(task.requirements, agent.category)
+    if unavailable:
+        raise HTTPException(422, unavailable)
     if task.agent_scope != "all" and is_demo_profile(agent) != (
         task.agent_scope == "demo"
     ):
@@ -406,6 +420,14 @@ def auto_select_bid(db, user_id, task_id):
 
 def process_payment(db, user_id, task_id):
     task = owned_task(db, task_id, user_id)
+    from app.execution import capability_error
+
+    chosen = db.get(Agent, task.winner_id) if task.winner_id else None
+    unavailable = (
+        capability_error(task.requirements, chosen.category) if chosen else None
+    )
+    if unavailable:
+        raise HTTPException(422, unavailable)
     if task.winner_id and is_demo_profile(db.get(Agent, task.winner_id)):
         raise HTTPException(
             409, "Demo runs are free. Use Run demo to get your deliverable."
@@ -528,7 +550,11 @@ def process_payment(db, user_id, task_id):
     return task_view(task, db)
 
 
-def settle_marketplace(db, user_id, task_id):
+def settle_marketplace(db, user_id, task_id, *, job_lease_token=None):
+    if get_settings().app_mode == "aws":
+        from app.execution_service import advance_execution
+
+        return advance_execution(db, user_id, task_id, job_lease_token=job_lease_token)
     task = owned_task(db, task_id, user_id)
     if task.status == "completed":
         return task_view(task, db)
@@ -669,6 +695,7 @@ def update_budget(db, user_id, data):
 
 def dispatch(db, user_id, action, data, task_id=None):
     from app.automation import start_automation
+    from app.execution_service import rerun_execution
 
     operations = {
         "create_task": lambda: create_task(db, user_id, data),
@@ -681,6 +708,7 @@ def dispatch(db, user_id, action, data, task_id=None):
         "publish_agent": lambda: publish_agent(db, user_id, data),
         "update_budget": lambda: update_budget(db, user_id, data),
         "start_automation": lambda: start_automation(db, user_id, task_id),
+        "rerun_execution": lambda: rerun_execution(db, user_id, task_id),
     }
     if action not in operations:
         raise HTTPException(400, "Unknown marketplace action")

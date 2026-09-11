@@ -21,6 +21,8 @@ class Invocation(BaseModel):
     task: dict | None = None
     agent: dict | None = None
     agents: list[dict] | None = None
+    execution_state: dict | None = None
+    requirements: dict | None = None
 
 
 @app.get("/ping")

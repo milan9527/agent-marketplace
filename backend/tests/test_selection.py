@@ -169,8 +169,21 @@ def test_aws_bids_never_invent_matches_for_omitted_agents(monkeypatch):
         "app.agents.get_settings", lambda: SimpleNamespace(app_mode="aws")
     )
     monkeypatch.setattr(
-        "app.agents.converse",
-        lambda *_: '[{"agent_id":"a","match_score":80,"rationale":"Relevant skills."}]',
+        "app.execution.plan_task",
+        lambda _: {
+            "web": False,
+            "code": False,
+            "external_actions": [],
+            "missing_inputs": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.agents.converse_structured",
+        lambda *_: {
+            "bids": [
+                {"agent_id": "a", "match_score": 80, "rationale": "Relevant skills."}
+            ]
+        },
     )
     payload = {
         "action": "quote",
@@ -182,10 +195,12 @@ def test_aws_bids_never_invent_matches_for_omitted_agents(monkeypatch):
     }
     assert [b["agent_id"] for b in run_bidders(payload)["bids"]] == ["a"]
     for invalid in (
-        "[]",
-        '[{"agent_id":"a","match_score":101,"rationale":"Invalid"}]',
-        '[{"agent_id":"a","match_score":"95","rationale":"Invalid"}]',
+        [],
+        [{"agent_id": "a", "match_score": 101, "rationale": "Invalid"}],
+        [{"agent_id": "a", "match_score": "95", "rationale": "Invalid"}],
     ):
-        monkeypatch.setattr("app.agents.converse", lambda *_, text=invalid: text)
+        monkeypatch.setattr(
+            "app.agents.converse_structured", lambda *_, bids=invalid: {"bids": bids}
+        )
         with pytest.raises(ValueError):
             run_bidders(payload)

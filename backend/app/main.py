@@ -11,7 +11,7 @@ from app.agents import invoke_runtime
 from app.auth import current_user
 from app.config import get_settings
 from app.db import Base, get_db, get_engine, session_factory
-from app.models import Agent, AutomationJob, Event, Payment, Task, User
+from app.models import Agent, AutomationJob, Event, ExecutionRun, Payment, Task, User
 from app.schemas import (
     AgentCreate,
     BudgetUpdate,
@@ -306,6 +306,30 @@ def deliver(
     task_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
 ):
     return execute(db, user, "settle_marketplace", task_id=task_id)
+
+
+@app.post("/api/tasks/{task_id}/rerun")
+def rerun(
+    task_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
+    if get_settings().app_mode != "aws":
+        raise HTTPException(400, "Real tool execution is available in the AWS environment.")
+    return execute(db, user, "rerun_execution", task_id=task_id)
+
+
+@app.get("/api/tasks/{task_id}/artifacts/{run_id}/{name}")
+def get_artifact(
+    task_id: str, run_id: str, name: str,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    readable_task(db, task_id, user)
+    run = db.get(ExecutionRun, run_id)
+    if not run or run.task_id != task_id:
+        raise HTTPException(404, "Execution not found")
+    item = next((v for v in run.state.get("artifacts", []) if v["name"] == name), None)
+    if not item:
+        raise HTTPException(404, "Artifact not found")
+    return item
 
 
 @app.post("/api/tasks/{task_id}/rate")

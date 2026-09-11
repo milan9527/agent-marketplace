@@ -6,6 +6,11 @@ web app's `/api/tasks/{id}/quote` request. The API verifies the signed-in owner.
 orchestrator gathers up to 20 active profiles from the chosen agent pool and
 sends their capabilities and the brief to the bidder Runtime.
 
+The bidder Runtime first identifies required tools, current-source requirements,
+missing inputs, and external actions. It assesses each profile against actual
+available tools as well as its skills. Missing connections/inputs or an unavailable
+required tool prevent selection and payment. See [real execution](real-execution.md).
+
 The bidder Runtime uses Bedrock to assess each profile. It returns a match score
 from 1–100 and an English explanation. A strong direct fit scores 90–100,
 sufficient relevant capabilities score 70–89, and partial relevance or missing
@@ -55,7 +60,8 @@ quote within budget.
 Selecting a demo agent moves the task to `demo_ready`; delivery needs no payment.
 Selecting a paid agent moves it to `awaiting_payment`. With automatic execution
 authorized, the worker next invokes the existing AgentCore Payments flow, waits
-for confirmed facilitator settlement, then generates and saves the deliverable.
+for confirmed facilitator settlement, then runs the durable tool loop and evidence
+checks before saving a completed deliverable.
 Manual tasks retain **Pay & authorize** and **Get deliverable**.
 
 Publishing in automatic mode authorizes payment of the winning quote up to the

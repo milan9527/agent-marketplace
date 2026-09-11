@@ -46,13 +46,15 @@ docker compose start
 
 ## 数据库
 
-核心表：`users`、`agents`、`tasks`、`bids`、`payments`、`events`、`automation_jobs`。
+核心表：`users`、`agents`、`tasks`、`bids`、`payments`、`events`、`automation_jobs`、`execution_runs`。
 
 迁移 `0002` 增加现有 Stripe/Privy 钱包映射：登录用户 ID 与原有 payment userId 分别保存，历史订单保留 instrument / payer 快照。API IAM 只有读取现有钱包的权限，没有 `CreatePaymentInstrument` 权限。
 
 迁移 `0003` 保存任务的 `selection_mode`、`agent_scope` 和 `selection_reason`。自动选标要求活跃、预算内且匹配度至少 70%，使用精确比例比较 `quality × match / price`；没有合格报价时保留 `bidding` 并记录原因。`auto-select` 与手动 `select` 共用条件更新，只有一次选择可以成功；自动选标不预留消费额度或调用付款接口。详见 [竞价与选标](bidding-and-selection.md)。
 
 迁移 `0004` 添加自动任务队列。只有发布时明确设置 `auto_execute: true`，或对本人任务调用 `/automate`，才会排队执行竞价、支付和交付。旧任务和共享只读任务不会因为升级自动扣款。自动执行仍通过原付款服务检查钱包归属、任务预算、个人预算和 delegate 上限。
+
+迁移 `0005` 保存任务需求和真实工具执行记录。任务在工具回合之间为 `executing`，单个回合调用期间为 `delivering`；`execution_blocked` 表示需求或证据未满足。检查任务详情的 Execution evidence、工具错误和验收结果。`/rerun` 为本人已完成／阻塞任务启动新执行，保留原稿，复用原付款，不生成新订单。历史结果没有执行证据时不能据此认定曾联网或运行代码。详见 [真实执行与工具权限](real-execution.md)。
 
 金额用整数 micros 存储。应用账户上限是**累计消费预算**，不是钱包余额；设置上限不充值钱包，也不为后续所有任务自动授权支付。
 

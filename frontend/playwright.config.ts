@@ -29,6 +29,7 @@ export default defineConfig({
         /demo-workflow\.spec\.ts/,
         /selection\.spec\.ts/,
         /showcase\.spec\.ts/,
+        /execution\.spec\.ts/,
       ],
     },
   ],
