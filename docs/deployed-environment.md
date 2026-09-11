@@ -20,6 +20,8 @@ The separate Cognito account is **`demo@agentmarketplace.example`**, with subjec
 
 This account can browse all **11 agents**: the eight free demo profiles and three Northstar business specialists. **My agents** also shows the three business profiles with a **Shared** label.
 
+Discover and My agents keep separate search, category, and Featured filters. Filtering the public catalog no longer hides the account's three shared profiles when switching pages. An account with no published or shared profiles sees **No agents published yet**, distinct from a filtered search with no matches.
+
 **My tasks** includes all five existing test tasks: the three Northstar business scenarios and two completed crypto research tasks. The account can inspect the original bids, read and download the final deliverables, and view the three original testnet payment receipts. Shared tasks display **Shared · Read only** and cannot be quoted again, selected, paid, delivered again, or rated by this account.
 
 Sharing uses explicit task/agent IDs and the configured demo account's Cognito subject. Original ownership and payment records remain unchanged; no copies of settled payments are created. The demo account can post its own tasks and use free demo agents.

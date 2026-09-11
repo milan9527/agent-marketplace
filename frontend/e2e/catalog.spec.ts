@@ -84,6 +84,93 @@ test("new users can browse demo profiles and start a demo task", async ({
     await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: /^My agents/ }).click();
   await expect(
+    page.getByRole("heading", { name: "No agents published yet" }),
+  ).toBeVisible();
+});
+
+test("Discover filters do not hide My agents, and each catalog keeps its filters", async ({
+  page,
+}, info) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const base = {
+    tagline: "A specialist for your next task.",
+    description: "Analyze the supplied inputs.",
+    skills: ["Analysis"],
+    price: "0.010000",
+    wallet: `0x${"1".repeat(40)}`,
+    color: "orange",
+    icon: "chart",
+    active: true,
+    bookable: true,
+    completed_tasks: 0,
+    rating: null,
+    review_count: 0,
+    created_at: new Date().toISOString(),
+  };
+  const shared = {
+    ...base,
+    id: "shared-analyst",
+    name: "Shared Revenue Analyst",
+    category: "Finance",
+    featured: false,
+    read_only: true,
+  };
+  const atlas = {
+    ...base,
+    id: "atlas",
+    name: "Atlas Research",
+    category: "Research",
+    featured: true,
+    is_demo: true,
+    wallet: null,
+  };
+  await page.route("**/api/agents**", (route) =>
+    route.fulfill({
+      json:
+        new URL(route.request().url()).searchParams.get("mine") === "true"
+          ? [shared]
+          : [atlas, shared],
+    }),
+  );
+  const navigate = async (name: string) => {
+    if (info.project.name === "mobile")
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+  await page.goto("/");
+  await expect(page.locator(".agent-card")).toHaveCount(2);
+  await page.getByLabel("Search agents").fill("Atlas");
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await page.getByRole("button", { name: "Featured", exact: true }).click();
+  await expect(page.locator(".agent-card")).toHaveCount(1);
+  await navigate("My agents");
+  await expect(page.locator(".agent-card")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: shared.name, exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Search agents")).toHaveValue("");
+  await expect(
+    page.getByRole("button", { name: "Featured", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await page.getByLabel("Search agents").fill("No matching specialist");
+  await expect(
     page.getByRole("heading", { name: "No agents found" }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await expect(page.locator(".agent-card")).toHaveCount(1);
+  await navigate("Discover agents");
+  await expect(page.getByLabel("Search agents")).toHaveValue("Atlas");
+  await expect(
+    page.getByRole("button", { name: "Featured", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".agent-card")).toHaveCount(1);
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "My agents", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".agent-card")).toHaveCount(1);
+  expect(errors).toEqual([]);
 });

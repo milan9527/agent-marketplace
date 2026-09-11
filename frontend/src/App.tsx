@@ -59,6 +59,20 @@ import type {
   WalletInfo,
 } from "./types";
 
+type CatalogPage = "discover" | "agents";
+type CatalogFilters = {
+  query: string;
+  category: string;
+  sort: string;
+  onlyFeatured: boolean;
+};
+const defaultCatalogFilters: CatalogFilters = {
+  query: "",
+  category: "All agents",
+  sort: "recommended",
+  onlyFeatured: false,
+};
+
 const categories = [
   "All agents",
   "Research",
@@ -386,10 +400,23 @@ export default function App() {
     const hash = location.hash.slice(1) as Page;
     return Object.hasOwn(pageNames, hash) ? hash : "discover";
   });
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All agents");
-  const [sort, setSort] = useState("recommended");
-  const [onlyFeatured, setOnlyFeatured] = useState(false);
+  const [catalogFilters, setCatalogFilters] = useState<
+    Record<CatalogPage, CatalogFilters>
+  >({
+    discover: { ...defaultCatalogFilters },
+    agents: { ...defaultCatalogFilters },
+  });
+  const catalogPage: CatalogPage = page === "agents" ? "agents" : "discover";
+  const { query, category, sort, onlyFeatured } = catalogFilters[catalogPage];
+  function updateCatalogFilters(
+    changes: Partial<CatalogFilters>,
+    target: CatalogPage = catalogPage,
+  ) {
+    setCatalogFilters((current) => ({
+      ...current,
+      [target]: { ...current[target], ...changes },
+    }));
+  }
   const [modal, setModal] = useState<ModalState>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -935,7 +962,7 @@ export default function App() {
                         <div className="eyebrow">YOUR SPECIALIST TEAM</div>
                         <h1>My agents</h1>
                         <p>
-                          {agents.some((agent) => agent.read_only)
+                          {ownAgents.some((agent) => agent.read_only)
                             ? "Your published agents and shared business demo profiles."
                             : "Expertise you've published to the marketplace."}
                         </p>
@@ -982,12 +1009,14 @@ export default function App() {
                         aria-label="Search agents"
                         placeholder="Search agents, skills, or possibilities…"
                         value={query}
-                        onChange={(e) => setQuery(e.target.value)}
+                        onChange={(e) =>
+                          updateCatalogFilters({ query: e.target.value })
+                        }
                       />
                       {query ? (
                         <button
                           aria-label="Clear search"
-                          onClick={() => setQuery("")}
+                          onClick={() => updateCatalogFilters({ query: "" })}
                         >
                           <X size={15} />
                         </button>
@@ -998,7 +1027,9 @@ export default function App() {
                     <button
                       className={`button filter-button ${onlyFeatured ? "filter-on" : ""}`}
                       aria-pressed={onlyFeatured}
-                      onClick={() => setOnlyFeatured(!onlyFeatured)}
+                      onClick={() =>
+                        updateCatalogFilters({ onlyFeatured: !onlyFeatured })
+                      }
                     >
                       <SlidersHorizontal size={16} />
                       Featured {onlyFeatured && <Check size={13} />}
@@ -1011,7 +1042,7 @@ export default function App() {
                         <button
                           key={c}
                           className={category === c ? "selected" : ""}
-                          onClick={() => setCategory(c)}
+                          onClick={() => updateCatalogFilters({ category: c })}
                         >
                           <Icon size={15} />
                           {c}
@@ -1036,7 +1067,9 @@ export default function App() {
                       <select
                         aria-label="Sort agents"
                         value={sort}
-                        onChange={(e) => setSort(e.target.value)}
+                        onChange={(e) =>
+                          updateCatalogFilters({ sort: e.target.value })
+                        }
                       >
                         <option value="recommended">Recommended</option>
                         <option value="price">Lowest price</option>
@@ -1055,6 +1088,20 @@ export default function App() {
                         />
                       ))}
                     </div>
+                  ) : page === "agents" && ownAgents.length === 0 ? (
+                    <EmptyState
+                      icon={Bot}
+                      title="No agents published yet"
+                      description="Agents you publish and profiles shared with your account appear here. Browse Discover agents to hire a specialist."
+                      action={
+                        <button
+                          className="button secondary"
+                          onClick={() => setModal({ type: "agent-form" })}
+                        >
+                          Publish an agent
+                        </button>
+                      }
+                    />
                   ) : (
                     <EmptyState
                       icon={Search}
@@ -1063,11 +1110,9 @@ export default function App() {
                       action={
                         <button
                           className="button secondary"
-                          onClick={() => {
-                            setQuery("");
-                            setCategory("All agents");
-                            setOnlyFeatured(false);
-                          }}
+                          onClick={() =>
+                            updateCatalogFilters(defaultCatalogFilters)
+                          }
                         >
                           Clear filters
                         </button>
@@ -1811,9 +1856,7 @@ export default function App() {
                 });
                 await refresh();
                 setModal(null);
-                setCategory("All agents");
-                setQuery("");
-                setOnlyFeatured(false);
+                updateCatalogFilters(defaultCatalogFilters, "agents");
                 navigate("agents");
                 setToast("Your agent is now on the marketplace.");
               });
