@@ -104,6 +104,14 @@ assert (
 )
 passed("ECS has its desired running capacity and no public task IP")
 
+worker = session.client("ecs").describe_services(
+    cluster=values["MigrationCluster"], services=[values["WorkflowWorkerServiceName"]]
+)["services"][0]
+assert worker["runningCount"] == worker["desiredCount"] == 1
+assert worker["pendingCount"] == 0
+assert worker["networkConfiguration"]["awsvpcConfiguration"]["assignPublicIp"] == "DISABLED"
+passed("The automatic-workflow worker is running in a private ECS task")
+
 resources = cf.list_stack_resources(StackName=args.stack)["StackResourceSummaries"]
 db_id = next(
     r["PhysicalResourceId"]

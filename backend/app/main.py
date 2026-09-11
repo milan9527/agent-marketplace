@@ -11,7 +11,7 @@ from app.agents import invoke_runtime
 from app.auth import current_user
 from app.config import get_settings
 from app.db import Base, get_db, get_engine, session_factory
-from app.models import Agent, Event, Payment, Task, User
+from app.models import Agent, AutomationJob, Event, Payment, Task, User
 from app.schemas import (
     AgentCreate,
     BudgetUpdate,
@@ -110,9 +110,7 @@ def me(user: User = Depends(current_user)):
         "budget": money(budget),
         "spent": money(user.spent_micros),
         "reserved": money(user.reserved_micros),
-        "remaining": money(
-            budget - user.spent_micros - user.reserved_micros
-        ),
+        "remaining": money(budget - user.spent_micros - user.reserved_micros),
         "wallet_connected": bool(user.payment_instrument_id),
         "wallet_url": user.wallet_url,
         "wallet_address": user.wallet_address,
@@ -231,6 +229,13 @@ def overview(db: Session = Depends(get_db), user: User = Depends(current_user)):
 def execute(db, user, action, data=None, task_id=None):
     if task_id and readable_task(db, task_id, user).owner_id != user.id:
         raise HTTPException(403, "Shared demo tasks are read-only.")
+    if task_id and action != "start_automation":
+        job = db.get(AutomationJob, task_id)
+        if job and job.status in {"queued", "running"}:
+            raise HTTPException(
+                409,
+                "This task is running automatically. Its progress will update shortly.",
+            )
     settings = get_settings()
     payload = {
         "user_id": user.id,
@@ -287,6 +292,13 @@ def auto_select_winner(
     task_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
 ):
     return execute(db, user, "auto_select_bid", task_id=task_id)
+
+
+@app.post("/api/tasks/{task_id}/automate")
+def automate(
+    task_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
+    return execute(db, user, "start_automation", task_id=task_id)
 
 
 @app.post("/api/tasks/{task_id}/deliver")

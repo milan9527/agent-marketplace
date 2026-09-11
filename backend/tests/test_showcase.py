@@ -91,6 +91,7 @@ def test_shared_task_mutations_and_wallet_binding_are_rejected(
         ("select", {"bid_id": bid["id"]}),
         ("pay", {}),
         ("deliver", {}),
+        ("automate", {}),
         ("rate", {"score": 5}),
     ]:
         response = client.post(url + "/" + action, json=body)

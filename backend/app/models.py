@@ -136,3 +136,18 @@ class Event(Base):
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(String(40), default=now)
     __table_args__ = (Index("ix_events_owner_created", "owner_id", "created_at"),)
+
+
+class AutomationJob(Base):
+    __tablename__ = "automation_jobs"
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(24), default="queued")
+    stage: Mapped[str] = mapped_column(String(30), default="open")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    available_at: Mapped[int] = mapped_column(Integer, default=0)
+    lease_until: Mapped[int] = mapped_column(Integer, default=0)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(String(40), default=now)
+    updated_at: Mapped[str] = mapped_column(String(40), default=now)
+    __table_args__ = (Index("ix_automation_ready", "status", "available_at"),)

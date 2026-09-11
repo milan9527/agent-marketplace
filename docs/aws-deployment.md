@@ -57,6 +57,7 @@ npx cdk deploy \
 - S3 私有前端资源和 CloudFront HTTPS，使用 OAC + SigV4 授权访问；S3 阻止全部公开访问。
 - CloudFront VPC Origin 到内部 ALB，API 不暴露公网负载均衡器；公网使用 HTTPS，VPC 内使用明确配置的 HTTP/80，ALB 仅接受 CloudFront 托管前缀列表来源。
 - 独立 FastAPI API，运行在 ARM64 ECS Fargate。
+- 独立 ECS 后台 worker，读取 RDS 自动任务队列，仅在有任务时调用编排 Runtime；支付签名和交付仍在 AgentCore 内执行。
 - 两个 ARM64 AgentCore Runtime：编排器在 VPC 内；竞价／交付 Runtime 使用 Bedrock。
 - RDS PostgreSQL，位于隔离子网，加密、7 天备份、删除保护。
 - Secrets Manager 保存 RDS 凭证，应用只接收 secret ARN。
@@ -67,14 +68,14 @@ npx cdk deploy \
 
 ## 初始化数据库
 
-更新已有部署、增加兼容字段时，先用当前 ECS 镜像运行新增迁移，再部署新应用。例如本次选标功能：
+更新已有部署时，先用当前 ECS 镜像运行新增迁移，再部署新应用。例如从 `0003` 升级自动执行功能：
 
 ```bash
 .venv/bin/python scripts/migrate_aws.py --region us-east-1 \
-  --include-migration backend/migrations/versions/0003_task_selection.py
+  --include-migration backend/migrations/versions/0004_automation_jobs.py
 ```
 
-该选项只将指定的本地迁移文件复制进一次性任务，不改写已有迁移。`0003` 为旧任务设置 `manual` / `all` 默认值，不删除业务数据。新增字段就绪后再更新 Runtime 和 ECS，可以避免部署切换期间读取缺失字段。
+该选项只将指定的本地迁移文件复制进一次性任务，不改写已有迁移。`0004` 创建空的 `automation_jobs` 表，不为旧任务自动增加付款授权。迁移完成后再更新 Runtime、API 和 worker，避免部署切换期间读取缺失的表。
 
 AWS 模式不会自动建表或创建演示账户，部署后运行：
 
@@ -100,7 +101,7 @@ CDK 设置 `selfSignUpEnabled: false`，对应 Cognito `AllowAdminCreateUserOnly
 .venv/bin/python scripts/verify_deployment.py --region us-east-1
 ```
 
-检查公网登录入口、Cognito 自助注册已关闭、API 健康与匿名拒绝、S3 OAC、私有 ECS／RDS 和两个 Runtime 状态，报告保存到 `artifacts/aws-verification.json`。
+检查公网登录入口、Cognito 自助注册已关闭、API 健康与匿名拒绝、S3 OAC、私有 ECS API／worker／RDS 和两个 Runtime 状态，报告保存到 `artifacts/aws-verification.json`。
 
 `seed_aws.py` 将本地默认的 8 个 Agent 作为共享演示目录写入 RDS，新用户登录后即可浏览、搜索和运行。初始化可以重复执行，不覆盖已有记录。演示资料由独立系统身份持有，不属于任何登录用户；卡片标注 **Demo**。演示 Agent 可参与竞价和选标，选择后点击 **Run demo** 生成交付物，无需绑定钱包。示例价格不会用于扣款，服务端拒绝演示任务调用付款接口，演示反馈不计入公开付费信誉。
 
@@ -115,6 +116,8 @@ CDK 设置 `selfSignUpEnabled: false`，对应 Cognito `AllowAdminCreateUserOnly
 5. 发布任务、比较报价、选择中标者并点击 **Pay & authorize**。
 6. 服务端创建带任务预算的支付 session，执行 `ProcessPayment`，再向 facilitator `/verify`、`/settle` 提交证明。
 7. 成功后可以在支付列表查看真实 Base Sepolia 交易链接并开始交付。
+
+选择 **Automatic: bid, pay & run** 发布任务时，会同时授权预算内的后续支付。后台自动竞价、选标、通过相同 AgentCore Payments 接口付款并完成交付，无需再次点击支付或交付。历史任务可点击 **Run automatically** 为剩余步骤授权。部署输出 `WorkflowWorkerServiceName` 可用于查看 worker 服务；CloudWatch 日志前缀为 `marketplace-worker`。
 
 管理员也可在支付参数部署完成、指定账户已登录过网站后执行绑定：
 

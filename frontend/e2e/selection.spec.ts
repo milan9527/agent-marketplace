@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Task } from "../src/types";
 
 for (const mode of ["auto", "manual"] as const) {
-  test(`${mode} task selection chooses an eligible agent and waits for payment`, async ({
+  test(`${mode} task follows its authorized payment and delivery mode`, async ({
     page,
   }, info) => {
     const paymentRequests: string[] = [];
@@ -41,18 +41,40 @@ for (const mode of ["auto", "manual"] as const) {
     ).toBeVisible();
     await expect(
       dialog.getByText(/Automatically selected .*highest quality/),
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: /Pay \$.* & authorize/ }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 45000 });
+    if (mode === "auto") {
+      await expect(
+        dialog.getByText("Task completed", { exact: true }),
+      ).toBeVisible({
+        timeout: 45000,
+      });
+      await expect(
+        dialog.getByRole("button", { name: "Download", exact: true }),
+      ).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: /Pay \$.* & authorize/ }),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        dialog.getByRole("button", { name: /Pay \$.* & authorize/ }),
+      ).toBeVisible();
+    }
     await expect(
       dialog.getByRole("button", { name: "Get deliverable" }),
     ).toHaveCount(0);
     expect(paymentRequests).toEqual([]);
     const tasks: Task[] = await (await page.request.get("/api/tasks")).json();
     const selected = tasks.find((task) => task.title === title)!;
-    expect(selected.status).toBe("awaiting_payment");
-    expect(selected.payment).toBeNull();
+    expect(selected.status).toBe(
+      mode === "auto" ? "completed" : "awaiting_payment",
+    );
+    if (mode === "auto") {
+      expect(selected.payment?.status).toBe("settled");
+      expect(selected.automation?.status).toBe("completed");
+    } else {
+      expect(selected.payment).toBeNull();
+      expect(selected.auto_execute).toBe(false);
+    }
     expect(selected.selection_mode).toBe("auto");
     const winner = selected.bids.find(
       (bid) => bid.agent.id === selected.winner_id,

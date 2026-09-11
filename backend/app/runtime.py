@@ -34,6 +34,10 @@ def invoke(body: Invocation):
         if get_settings().runtime_role == "bidders":
             return run_bidders(body.model_dump(exclude_none=True))
         with session_factory()() as db:
+            if body.action == "advance_automation":
+                from app.automation import advance_automation
+
+                return advance_automation(db)
             return dispatch(db, body.user_id, body.action, body.data, body.task_id)
     except HTTPException as exc:
         return {"error": exc.detail, "status_code": exc.status_code}

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.agents import call_bidders
 from app.config import get_settings
-from app.models import Agent, Bid, Event, Payment, Task, User
+from app.models import Agent, AutomationJob, Bid, Event, Payment, Task, User
 from app.payments import PaymentUncertain, settle_payment
 from app.seed import is_demo_profile
 from app.schemas import (
@@ -125,6 +125,7 @@ def task_view(task: Task, db: Session) -> dict:
         if selected
         else bool(bid_views) and all(b["agent"]["is_demo"] for b in bid_views)
     )
+    job = db.get(AutomationJob, task.id)
     return {
         "id": task.id,
         "title": task.title,
@@ -138,6 +139,15 @@ def task_view(task: Task, db: Session) -> dict:
         "selection_reason": task.selection_reason,
         "recommended_bid_id": recommended.id if recommended else None,
         "minimum_auto_match": MIN_AUTO_MATCH,
+        "auto_execute": job is not None,
+        "automation": {
+            "status": job.status,
+            "stage": job.stage,
+            "attempts": job.attempts,
+            "error": job.error,
+        }
+        if job
+        else None,
         "deadline": task.deadline,
         "winner_id": task.winner_id,
         "created_at": task.created_at,
@@ -210,6 +220,15 @@ def create_task(db, user_id, data):
     )
     db.add(task)
     db.flush()
+    if body.auto_execute:
+        db.add(AutomationJob(task_id=task.id))
+        record(
+            db,
+            user_id,
+            "automation_authorized",
+            f"Authorized automatic bidding, selection, payment up to {money(task.budget_micros)} USDC, and delivery.",
+            task.id,
+        )
     record(db, user_id, "task_posted", f'Published "{task.title}"', task.id)
     db.commit()
     return task_view(task, db)
@@ -425,7 +444,8 @@ def process_payment(db, user_id, task_id):
     limit = delegated_payment_limit(user_id)
     allowance = (
         [User.spent_micros + User.reserved_micros + amount <= limit]
-        if limit is not None else []
+        if limit is not None
+        else []
     )
     reserved = db.execute(
         update(User)
@@ -648,6 +668,8 @@ def update_budget(db, user_id, data):
 
 
 def dispatch(db, user_id, action, data, task_id=None):
+    from app.automation import start_automation
+
     operations = {
         "create_task": lambda: create_task(db, user_id, data),
         "quote_marketplace": lambda: quote_marketplace(db, user_id, task_id),
@@ -658,6 +680,7 @@ def dispatch(db, user_id, action, data, task_id=None):
         "rate_task": lambda: rate_task(db, user_id, task_id, data),
         "publish_agent": lambda: publish_agent(db, user_id, data),
         "update_budget": lambda: update_budget(db, user_id, data),
+        "start_automation": lambda: start_automation(db, user_id, task_id),
     }
     if action not in operations:
         raise HTTPException(400, "Unknown marketplace action")

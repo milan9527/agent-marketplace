@@ -57,6 +57,13 @@ export type Task = {
   selection_reason?: string | null;
   recommended_bid_id?: string | null;
   minimum_auto_match?: number;
+  auto_execute?: boolean;
+  automation?: {
+    status: "queued" | "running" | "blocked" | "review_required" | "completed";
+    stage: string;
+    attempts: number;
+    error: string | null;
+  } | null;
   winner_id: string | null;
   created_at: string;
   bids: Bid[];

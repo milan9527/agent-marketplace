@@ -246,8 +246,9 @@ task.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
     'bedrock-agentcore:GetPaymentConnector',
   ], resources: [paymentManager.valueAsString, `${paymentManager.valueAsString}/*`],
 }))
+const apiImage = ecs.ContainerImage.fromAsset(path.join(root, 'backend'), { platform: assets.Platform.LINUX_ARM64 })
 const container = task.addContainer('api', {
-  image: ecs.ContainerImage.fromAsset(path.join(root, 'backend'), { platform: assets.Platform.LINUX_ARM64 }),
+  image: apiImage,
   logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'marketplace-api', logRetention: logs.RetentionDays.ONE_MONTH }),
   environment: {
     APP_MODE: 'aws', AWS_REGION: stack.region, DATABASE_SECRET_ARN: database.secret!.secretArn,
@@ -275,15 +276,45 @@ const service = new ecs.FargateService(stack, 'ApiService', {
   minHealthyPercent: 100,
 })
 service.node.addDependency(database)
+const workerTask = new ecs.FargateTaskDefinition(stack, 'WorkflowWorkerTask', {
+  cpu: 256, memoryLimitMiB: 512,
+  runtimePlatform: { cpuArchitecture: ecs.CpuArchitecture.ARM64, operatingSystemFamily: ecs.OperatingSystemFamily.LINUX },
+})
+database.secret!.grantRead(workerTask.taskRole)
+workerTask.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+  actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+  resources: [orchestrator.attrAgentRuntimeArn, `${orchestrator.attrAgentRuntimeArn}/*`],
+}))
+workerTask.addContainer('worker', {
+  image: apiImage,
+  command: ['python', '-m', 'app.worker'],
+  logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'marketplace-worker', logRetention: logs.RetentionDays.ONE_MONTH }),
+  environment: {
+    APP_MODE: 'aws', AWS_REGION: stack.region,
+    ORCHESTRATOR_RUNTIME_ARN: orchestrator.attrAgentRuntimeArn,
+    DATABASE_SECRET_ARN: database.secret!.secretArn,
+    // Roll workers with the Runtime so reused sessions cannot retain an old
+    // wallet authorization or spending cap after a configuration deployment.
+    ORCHESTRATOR_RUNTIME_VERSION: orchestrator.attrAgentRuntimeVersion,
+  },
+  stopTimeout: Duration.seconds(120),
+})
+const workerService = new ecs.FargateService(stack, 'WorkflowWorkerService', {
+  cluster, taskDefinition: workerTask, desiredCount: 1, securityGroups: [appSg],
+  vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }, assignPublicIp: false,
+  circuitBreaker: { rollback: true }, minHealthyPercent: 100,
+})
+workerService.node.addDependency(orchestrator)
 listener.addTargets('ApiTargets', {
   port: 8000, protocol: elb.ApplicationProtocol.HTTP, targets: [service],
   healthCheck: { path: '/api/health', healthyHttpCodes: '200', interval: Duration.seconds(30) },
   deregistrationDelay: Duration.seconds(30),
 })
-new deployment.BucketDeployment(stack, 'DeployWeb', {
+const webDeployment = new deployment.BucketDeployment(stack, 'DeployWeb', {
   sources: [deployment.Source.asset(path.join(root, 'frontend/dist'))],
   destinationBucket: bucket, distribution, distributionPaths: ['/*'],
 })
+webDeployment.node.addDependency(service, workerService)
 
 for (const [name, value] of Object.entries({
   WebsiteUrl: siteUrl, OrchestratorRuntimeArn: orchestrator.attrAgentRuntimeArn,
@@ -293,4 +324,5 @@ for (const [name, value] of Object.entries({
   FrontendBucket: bucket.bucketName, CloudFrontDistributionId: distribution.distributionId,
   UserPoolId: userPool.userPoolId, UserPoolClientId: userClient.userPoolClientId,
   ApiServiceName: service.serviceName, LoginUrl: `${siteUrl}/login`,
+  WorkflowWorkerServiceName: workerService.serviceName,
 })) new CfnOutput(stack, name, { value })

@@ -38,6 +38,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment:
+      APP_MODE: demo
+      DATABASE_URL: postgresql+psycopg://marketplace:${POSTGRES_PASSWORD:-marketplace-local-only}@db:5432/marketplace
+    depends_on:
+      backend:
+        condition: service_healthy
   frontend:
     build: ./frontend
     ports:
@@ -45,5 +54,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      worker:
+        condition: service_started
 volumes:
   marketplace_data:

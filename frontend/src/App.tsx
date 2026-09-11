@@ -480,7 +480,10 @@ export default function App() {
   useEffect(() => {
     if (
       modal?.type !== "task" ||
-      !["quoting", "paying", "delivering"].includes(modal.task.status)
+      !(
+        ["quoting", "paying", "delivering"].includes(modal.task.status) ||
+        ["queued", "running"].includes(modal.task.automation?.status || "")
+      )
     )
       return;
     const id = modal.task.id;
@@ -497,6 +500,17 @@ export default function App() {
     }, 3000);
     return () => clearInterval(timer);
   }, [modal]);
+
+  useEffect(() => {
+    if (
+      !tasks.some((task) =>
+        ["queued", "running"].includes(task.automation?.status || ""),
+      )
+    )
+      return;
+    const timer = setInterval(() => void refresh().catch(() => {}), 5000);
+    return () => clearInterval(timer);
+  }, [tasks, refresh]);
 
   function navigate(next: Page) {
     setPage(next);
@@ -1618,6 +1632,7 @@ export default function App() {
                   ).toISOString(),
                   preferred_agent_id: agent?.id || null,
                   selection_mode: data.get("selection_mode") || "manual",
+                  auto_execute: data.get("selection_mode") === "auto",
                   agent_scope: agent
                     ? agent.is_demo
                       ? "demo"
@@ -1627,6 +1642,12 @@ export default function App() {
                 setModal({ type: "task", task });
                 navigate("tasks");
                 await refresh();
+                if (task.auto_execute) {
+                  setToast(
+                    "Automatic task started. Bidding, payment, and delivery continue in the background.",
+                  );
+                  return;
+                }
                 const quoted = await post<Task>(`/tasks/${task.id}/quote`);
                 setModal({ type: "task", task: quoted });
                 await refresh();
@@ -1710,7 +1731,7 @@ export default function App() {
                 Agent selection
                 <select name="selection_mode" defaultValue="manual">
                   <option value="manual">I'll choose an agent</option>
-                  <option value="auto">Choose automatically</option>
+                  <option value="auto">Automatic: bid, pay & run</option>
                 </select>
               </label>
               {!agent && (
@@ -1725,16 +1746,18 @@ export default function App() {
               )}
             </div>
             <p className="small-note">
-              Automatic selection requires at least a 70% match and a quote
-              within your budget, then ranks quality × match / price. Paid tasks
-              wait for your payment confirmation.
+              Automatic mode collects bids, selects a qualifying agent, pays
+              through AgentCore Payments, and generates the deliverable.
+              Publishing an automatic task authorizes the winning payment up to
+              your task budget and remaining account allowance. Requires at
+              least a 70% match; ranks quality × match / price.
             </p>
             <div className="form-note">
               <ShieldCheck size={17} />
               <span>
-                Posting is free. Demo agents deliver without a wallet or
-                payment. Live agents require payment authorization before work
-                begins.
+                Posting is free. Demo agents deliver without a payment.
+                Automatic paid tasks use your connected Stripe / Privy wallet.
+                Manual tasks wait for you to approve payment.
                 {config?.mode === "demo" && " Demo payments use no real funds."}
               </span>
             </div>
@@ -1971,6 +1994,9 @@ export default function App() {
     if (modal.type === "task") {
       const task = modal.task;
       const winner = task.bids.find((b) => b.agent.id === task.winner_id);
+      const autoRunning = ["queued", "running"].includes(
+        task.automation?.status || "",
+      );
       const stage =
         task.status === "completed"
           ? 4
@@ -2028,6 +2054,34 @@ export default function App() {
                 Budget <strong>${cash(task.budget)} USDC</strong>
               </span>
             </div>
+            {task.automation && (
+              <div
+                className={`form-note ${["blocked", "review_required"].includes(task.automation.status) ? "warning" : ""}`}
+              >
+                {autoRunning ? (
+                  <LoaderCircle size={18} className="spin" />
+                ) : (
+                  <Sparkles size={18} />
+                )}
+                <span>
+                  <strong>
+                    {task.status === "completed"
+                      ? "Task completed"
+                      : autoRunning
+                        ? "Automatic workflow is running"
+                        : task.automation.status === "review_required"
+                          ? "Payment needs review"
+                          : "Automatic workflow paused"}
+                  </strong>
+                  <br />
+                  {task.status === "completed"
+                    ? "Your result is saved and ready to download."
+                    : autoRunning
+                      ? "Bidding, selection, payment, and delivery continue in the background. You can close this page."
+                      : task.automation.error}
+                </span>
+              </div>
+            )}
             <div className="brief-box">
               <h4>THE BRIEF</h4>
               <p>{task.spec}</p>
@@ -2047,7 +2101,9 @@ export default function App() {
                   </strong>
                   <br />
                   {task.selection_reason ||
-                    "The best qualifying bid will be selected once quotes arrive. Payment still requires your confirmation."}
+                    (task.auto_execute
+                      ? "The best qualifying bid will be selected, paid within your budget, and executed automatically."
+                      : "The best qualifying bid will be selected once quotes arrive. Payment still requires your confirmation.")}
                 </span>
               </div>
             )}
@@ -2061,7 +2117,41 @@ export default function App() {
                 </p>
               </div>
             )}
-            {!task.read_only && task.status === "open" && (
+            {!task.read_only &&
+              !autoRunning &&
+              [
+                "open",
+                "bidding",
+                "awaiting_payment",
+                "paid",
+                "demo_ready",
+              ].includes(task.status) && (
+                <div className="checkout-box">
+                  <div>
+                    <Sparkles size={20} />
+                    <span>
+                      <strong>Run the remaining steps automatically.</strong>
+                      <small>
+                        Authorize bidding, selection, payment up to $
+                        {cash(task.budget)} USDC, and delivery within your
+                        account allowance.
+                      </small>
+                    </span>
+                  </div>
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void taskAction(task, "automate")}
+                  >
+                    {busy
+                      ? formBusy
+                      : task.auto_execute
+                        ? "Resume automatic task"
+                        : "Run automatically"}
+                  </button>
+                </div>
+              )}
+            {!task.read_only && !autoRunning && task.status === "open" && (
               <button
                 className="button primary"
                 disabled={busy}
@@ -2082,7 +2172,7 @@ export default function App() {
                 <p>{statuses[task.status]}… This view updates automatically.</p>
               </div>
             )}
-            {!task.read_only && task.status === "bidding" && (
+            {!task.read_only && !autoRunning && task.status === "bidding" && (
               <div className="checkout-box">
                 <div>
                   <Sparkles size={20} />
@@ -2169,32 +2259,34 @@ export default function App() {
                           </strong>
                         </div>
                         <p>{bid.rationale}</p>
-                        {!task.read_only && task.status === "bidding" && (
-                          <button
-                            className={`button ${i === 0 ? "primary" : "secondary"} small-button`}
-                            disabled={
-                              busy ||
-                              !bid.within_budget ||
-                              bid.agent.bookable === false
-                            }
-                            onClick={() =>
-                              void taskAction(task, "select", {
-                                bid_id: bid.id,
-                              })
-                            }
-                          >
-                            {bid.within_budget ? (
-                              <>
-                                {bid.agent.is_demo
-                                  ? "Choose demo agent"
-                                  : "Choose agent"}{" "}
-                                <ArrowRight size={13} />
-                              </>
-                            ) : (
-                              "Over budget"
-                            )}
-                          </button>
-                        )}
+                        {!task.read_only &&
+                          !autoRunning &&
+                          task.status === "bidding" && (
+                            <button
+                              className={`button ${i === 0 ? "primary" : "secondary"} small-button`}
+                              disabled={
+                                busy ||
+                                !bid.within_budget ||
+                                bid.agent.bookable === false
+                              }
+                              onClick={() =>
+                                void taskAction(task, "select", {
+                                  bid_id: bid.id,
+                                })
+                              }
+                            >
+                              {bid.within_budget ? (
+                                <>
+                                  {bid.agent.is_demo
+                                    ? "Choose demo agent"
+                                    : "Choose agent"}{" "}
+                                  <ArrowRight size={13} />
+                                </>
+                              ) : (
+                                "Over budget"
+                              )}
+                            </button>
+                          )}
                       </div>
                     ),
                   )}
@@ -2202,6 +2294,7 @@ export default function App() {
               </>
             )}
             {!task.read_only &&
+              !autoRunning &&
               task.status === "awaiting_payment" &&
               winner && (
                 <div className="checkout-box">
@@ -2238,34 +2331,36 @@ export default function App() {
                   </button>
                 </div>
               )}
-            {!task.read_only && task.status === "demo_ready" && (
-              <div className="checkout-box">
-                <div>
-                  <Sparkles size={21} />
-                  <span>
-                    <strong>Your demo agent is ready.</strong>
-                    <small>
-                      Generate a deliverable. No wallet, payment, or
-                      spending-limit deduction.
-                    </small>
-                  </span>
+            {!task.read_only &&
+              !autoRunning &&
+              task.status === "demo_ready" && (
+                <div className="checkout-box">
+                  <div>
+                    <Sparkles size={21} />
+                    <span>
+                      <strong>Your demo agent is ready.</strong>
+                      <small>
+                        Generate a deliverable. No wallet, payment, or
+                        spending-limit deduction.
+                      </small>
+                    </span>
+                  </div>
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void taskAction(task, "deliver")}
+                  >
+                    {busy ? (
+                      formBusy
+                    ) : (
+                      <>
+                        Run demo <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  className="button primary"
-                  disabled={busy}
-                  onClick={() => void taskAction(task, "deliver")}
-                >
-                  {busy ? (
-                    formBusy
-                  ) : (
-                    <>
-                      Run demo <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-            {!task.read_only && task.status === "paid" && (
+              )}
+            {!task.read_only && !autoRunning && task.status === "paid" && (
               <div className="checkout-box">
                 <div>
                   <CheckCheck size={21} />
@@ -2433,8 +2528,9 @@ export default function App() {
                     <>
                       Shared test wallet. Your account has a total allowance of{" "}
                       {cash(user.payment_limit || "0")} USDC, with{" "}
-                      {cash(user.remaining)} USDC remaining. The wallet balance is
-                      shared; your tasks and payment records belong to your account.{" "}
+                      {cash(user.remaining)} USDC remaining. The wallet balance
+                      is shared; your tasks and payment records belong to your
+                      account.{" "}
                     </>
                   )}
                   Task payments use this wallet through AgentCore Payments.

@@ -17,14 +17,14 @@ class BidEvaluation(BaseModel):
     rationale: str = Field(min_length=1, max_length=1000)
 
 
-def invoke_runtime(arn: str, payload: dict) -> dict:
+def invoke_runtime(arn: str, payload: dict, *, session_id: str | None = None) -> dict:
     response = boto3.client(
         "bedrock-agentcore",
         region_name=get_settings().aws_region,
         config=Config(read_timeout=180, retries={"max_attempts": 0}),
     ).invoke_agent_runtime(
         agentRuntimeArn=arn,
-        runtimeSessionId=str(uuid4()),
+        runtimeSessionId=session_id or str(uuid4()),
         payload=json.dumps(payload).encode(),
         contentType="application/json",
     )

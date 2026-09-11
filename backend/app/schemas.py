@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Category = Literal[
     "Finance", "Research", "Development", "Content", "Data", "Automation"
@@ -23,6 +23,13 @@ class TaskCreate(StrictModel):
     preferred_agent_id: str | None = None
     selection_mode: Literal["manual", "auto"] = "manual"
     agent_scope: Literal["all", "demo", "live"] = "all"
+    auto_execute: bool = False
+
+    @model_validator(mode="after")
+    def automatic_selection_required(self):
+        if self.auto_execute and self.selection_mode != "auto":
+            raise ValueError("Automatic execution requires automatic agent selection")
+        return self
 
     @field_validator("deadline")
     @classmethod

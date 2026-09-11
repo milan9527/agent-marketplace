@@ -11,6 +11,8 @@ flowchart LR
   Browser --> Cognito[Cognito / Authorization Code + PKCE]
   API -->|SigV4| O[AgentCore Runtime 1 / Orchestrator]
   API --> DB[(RDS PostgreSQL)]
+  W[ECS workflow worker] -->|Poll ready jobs| DB
+  W -->|SigV4 / advance one stage| O
   O --> DB
   O -->|SigV4| B[AgentCore Runtime 2 / N Specialist Profiles]
   B --> Bedrock[Amazon Bedrock Converse]
@@ -81,7 +83,7 @@ stateDiagram-v2
 
 同一账户的支出使用 PostgreSQL 原子条件更新，两个并发任务不能同时花费同一笔剩余额度。每个任务最多一笔支付记录。支付超时或证明产生后失败会保留预留金额，阻止再次扣款，等待操作员核对。
 
-一次调用仍以同步 HTTP 执行为主。报价或交付运行时被强制终止会留下处理中状态，需要根据运维说明恢复；本版本未实现 SQS / Step Functions 持久化工作队列。
+自动任务通过 RDS `automation_jobs` 持久化授权、阶段和租约，由独立 ECS worker 调用编排 Runtime 分步完成竞价、付款和交付。网页只需发布一次，关闭页面不会停止后台任务。每一步 Runtime 调用使用同步 HTTP，队列记录负责跨请求恢复；没有使用 SQS 或 Step Functions。支付不确定或租约失效且操作仍在处理中时暂停核对，不能因超时重复扣款。
 
 ## HTTP API
 
@@ -98,6 +100,7 @@ OpenAPI：`/docs`。受保护 API 在 AWS 模式要求 `Authorization: Bearer <C
 | POST | `/api/tasks/{id}/quote` | 收集竞价 |
 | POST | `/api/tasks/{id}/select` | 选择中标竞价 |
 | POST | `/api/tasks/{id}/auto-select` | 自动选择预算内匹配达标的最佳报价，不触发支付 |
+| POST | `/api/tasks/{id}/automate` | 明确授权或恢复本人任务的自动竞价、支付和交付 |
 | POST | `/api/tasks/{id}/pay` | 预算检查、支付签名和结算 |
 | POST | `/api/tasks/{id}/deliver` | 获取已付费交付物 |
 | POST | `/api/tasks/{id}/rate` | 对已完成任务评价一次 |
