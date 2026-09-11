@@ -1,12 +1,12 @@
 # Agent Marketplace
 
-根据 `agent-marketplace-on-amazon-agentcore.pdf` 构建的前后端分离应用，**产品界面全部为英文**。已实现 Agent 发布与发现、任务发布、竞价排序、预算内选标、支付、交付、下载和已完成任务评价。
+已实现 Agent 发布与发现、任务发布、竞价排序、预算内选标、支付、交付、下载和已完成任务评价。
 
 前端使用 React + TypeScript；独立后端使用 FastAPI + SQLAlchemy；Docker Compose 使用 PostgreSQL 16。AWS 配置将业务编排器和竞价／交付 Agent 分别部署在两个 Amazon Bedrock AgentCore Runtime 中。支付复用**现有 AgentCore Payments 绑定的 Stripe/Privy 钱包**，使用 x402 v2 和 Base Sepolia USDC，不创建新钱包。
 
 **AWS 登录入口：https://dp7428wrh61ns.cloudfront.net/login**。部署于 `us-east-1`，详见 [已部署环境与验证记录](docs/deployed-environment.md)。账号由管理员创建，Cognito 自助注册已关闭；已有账户可正常登录和找回密码。
 
-独立演示账户为 **`demo@agentmarketplace.example`**，密码单独提供。可查看现有 **5 个测试任务、11 个 Agent、3 笔测试支付记录**及交付物。共享任务只读，原始记录和付款钱包归属保留不变；演示账户可创建自己的任务并体验免费 Agent。
+独立演示账户为 **`demo@agentmarketplace.example`**，密码单独提供。可浏览 **11 个 Agent**，查看共享的 **5 个历史测试任务、3 笔历史测试支付记录**及交付物。共享任务只读；演示账户可创建自己的任务、体验免费 Agent，或自动选择付费 Agent，并通过已绑定的 Connector3 Stripe/Privy 测试钱包确认支付。
 
 AWS 用户登录后可直接使用本地默认的 **8 个演示 Agent**，支持搜索、分类、竞价和交付。点击 **Try agent**，或通过 **Post a task → Post task & get bids → Choose demo agent → Run demo** 体验完整流程。交付内容由 Bedrock 生成，可下载并留下个人反馈；演示无需钱包、不扣款，不影响公开付费信誉。个人任务、支付记录和已发布 Agent 按账户独立保存。使用 `scripts/seed_aws.py` 可重复初始化这份共享目录。
 
@@ -109,6 +109,6 @@ npm test
 
 AWS 使用私有 S3 + CloudFront OAC 托管前端，ECS Fargate 托管 API，RDS PostgreSQL 保存数据，AgentCore Runtime 执行业务编排和竞价／交付。`/login` 提供全英文邮箱登录、已有账户邮箱验证和密码重置，不提供自助注册。部署输出包含 `WebsiteUrl` 和 `LoginUrl`。
 
-支付使用现有 PaymentManager `demopaymentmanager-zy4lsroxj3` 和 Connector3。**AWS 已为 `milan9527@hotmail.com` 绑定 ACTIVE 的现有 Stripe/Privy 钱包，网络为 Base Sepolia 测试网**；登录后进入 **Payments → Stripe / Privy wallet** 查看地址和余额。`PAYMENT_OWNER_SUB` 指定原付款账户；独立 demo 登录账户通过 `PAYMENT_DELEGATE_SUB` 获得同一测试钱包的明确授权，累计付款与预留资金上限为 **1 测试 USDC**。钱包资金共用，任务和付款账本按登录账户分别保存；共享历史测试任务仍为只读，其他账户不会自动获得钱包权限。资源标识和验证记录见 [已部署环境](docs/deployed-environment.md)。
+支付使用现有 PaymentManager `demopaymentmanager-zy4lsroxj3` 和 Connector3（`mystripeprivyconnector3-wbtiy89xwz`）。**演示账户 `demo@agentmarketplace.example` 已绑定并获授权使用现有 ACTIVE 的 Stripe/Privy 钱包，网络为 Base Sepolia 测试网**；登录后进入 **Payments → Stripe / Privy wallet** 查看地址和余额。`PAYMENT_OWNER_SUB` 指定原付款账户，`PAYMENT_DELEGATE_SUB` 指定获授权的演示账户，其累计付款与预留资金上限为 **1 测试 USDC**。两个账户共用钱包资金，任务和付款账本按登录账户分别保存；共享历史测试任务只读，其他账户不会自动获得钱包权限。资源标识和验证记录见 [已部署环境](docs/deployed-environment.md)。
 
 三份合约提供源码、编译、部署脚本及本地 EVM 测试。**当前网页的注册、任务与信誉以数据库为准，尚未连接链上事件同步**。云端 USDC 支付结算与这三份目录合约独立，因此不依赖目录合约部署。该边界也显示在英文 Settings 页面中。
